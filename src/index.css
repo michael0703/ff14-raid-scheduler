@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* 你的自定義樣式可以寫在下面 */
+table {
+  border-spacing: 0;
+  width: 100%;
+}
