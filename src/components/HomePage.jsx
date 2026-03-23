@@ -14,14 +14,13 @@ const HomePage = () => {
                 <Shield size={24} />
               </div>
               <div>
-                <h1 className="text-xl font-black text-slate-800 tracking-tight">FF14 約戰助手</h1>
-                <p className="text-xs text-slate-500 font-medium">Smart Static Manager</p>
+                <h1 className="text-xl font-black text-slate-800 tracking-tight">FF14 工具箱</h1>
+                <p className="text-xs text-slate-500 font-medium">個人常用工具集</p>
               </div>
             </div>
             <nav className="hidden md:flex items-center gap-6">
               <Link to="/" className="text-blue-600 font-black text-sm">首頁</Link>
               <Link to="/search-item" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">查找物品</Link>
-              <Link to="/scheduler" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">副本調度</Link>
             </nav>
           </div>
         </div>
@@ -33,10 +32,10 @@ const HomePage = () => {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full">
           <div className="text-center">
             <h1 className="text-5xl font-black mb-6 tracking-tight">
-              歡迎來到 FF14 約戰助手
+              FF14 工具箱
             </h1>
             <p className="text-xl mb-12 text-blue-100 max-w-2xl mx-auto">
-              智能化的綜合工具系統，讓你的遊戲體驗更有效率。
+              個人常用的 FF14 輔助工具，包含物品查詢、採集地點等實用功能。
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -55,46 +54,36 @@ const HomePage = () => {
       {/* Footer */}
       <footer className="bg-slate-900 text-white py-12 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <div className="bg-blue-600 p-2 rounded-xl text-white">
                   <Shield size={20} />
                 </div>
-                <h3 className="font-black text-lg">FF14 約戰助手</h3>
+                <h3 className="font-black text-lg">FF14 工具箱</h3>
               </div>
               <p className="text-slate-400 text-sm">
-                讓遊戲體驗變得簡單高效
+                個人常用工具集，讓遊戲體驗更順暢。
               </p>
             </div>
 
             <div>
-              <h4 className="font-black mb-4">快速連結</h4>
+              <h4 className="font-black mb-4">工具</h4>
               <ul className="space-y-2 text-sm text-slate-400">
                 <li><Link to="/search-item" className="hover:text-white transition-colors">查找物品</Link></li>
-                <li><Link to="/scheduler" className="hover:text-white transition-colors">副本調度</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-black mb-4">支援</h4>
-              <ul className="space-y-2 text-sm text-slate-400">
-                <li><Link to="/help" className="hover:text-white transition-colors">使用指南</Link></li>
-                <li><Link to="/contact" className="hover:text-white transition-colors">聯絡我們</Link></li>
-                <li><Link to="/feedback" className="hover:text-white transition-colors">回饋建議</Link></li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-black mb-4">關於</h4>
               <p className="text-slate-400 text-sm">
-                專為 FF14 玩家設計的工具系統，讓體驗更順暢。
+                專為 FF14 玩家設計的靜態工具網站。
               </p>
             </div>
           </div>
 
           <div className="border-t border-slate-800 mt-8 pt-8 text-center text-sm text-slate-400">
-            <p>&copy; 2024 FF14 約戰助手. All rights reserved.</p>
+            <p>&copy; 2024 FF14 工具箱. All rights reserved.</p>
           </div>
         </div>
       </footer>
