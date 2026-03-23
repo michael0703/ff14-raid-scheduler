@@ -17,8 +17,8 @@ const SearchItem = () => {
     const initializeCache = async () => {
       try {
         const [itemsRes, gatheringRes] = await Promise.all([
-          fetch('/data/items.json'),
-          fetch('/data/gathering.json')
+          fetch(`${import.meta.env.BASE_URL}data/items.json`),
+          fetch(`${import.meta.env.BASE_URL}data/gathering.json`)
         ]);
         if (!itemsRes.ok || !gatheringRes.ok) throw new Error('無法取得物品或採集資料快取');
         
