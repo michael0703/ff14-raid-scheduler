@@ -1,250 +1,269 @@
 import { useState, useEffect } from 'react';
-import { Search, Loader2, Database, Box, MapPin, Pickaxe } from 'lucide-react';
+import { Search, Database, Box, MapPin, Pickaxe, Hammer, ChevronRight } from 'lucide-react';
 
 const SearchItem = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [cachedItems, setCachedItems] = useState([]);
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState(null);
-  const [results, setResults] = useState(null);
+  const [results, setResults] = useState([]);
   const [gatheringData, setGatheringData] = useState({});
+  const [recipeData, setRecipeData] = useState({});
+  const [itemsMap, setItemsMap] = useState({});
   const [selectedItem, setSelectedItem] = useState(null);
 
-  // 初次進網頁時「偷偷」把整包幾萬筆物品的資料載下來
   useEffect(() => {
     let mounted = true;
-    
-    const initializeCache = async () => {
+    const init = async () => {
       try {
-        const [itemsRes, gatheringRes] = await Promise.all([
+        const [itemsRes, gatheringRes, recipesRes] = await Promise.all([
           fetch(`${import.meta.env.BASE_URL}data/items.json`),
-          fetch(`${import.meta.env.BASE_URL}data/gathering.json`)
+          fetch(`${import.meta.env.BASE_URL}data/gathering.json`),
+          fetch(`${import.meta.env.BASE_URL}data/recipes.json`),
         ]);
-        if (!itemsRes.ok || !gatheringRes.ok) throw new Error('無法取得物品或採集資料快取');
-        
+        if (!itemsRes.ok || !gatheringRes.ok || !recipesRes.ok)
+          throw new Error('無法取得資料');
         const data = await itemsRes.json();
         const gathering = await gatheringRes.json();
-        
-        // items.json 的真實結構是 { "items": { "1": { ... }, "2": { ... } } }
-        let allItems = [];
-        if (data.items) {
-          allItems = Object.values(data.items);
-        } else {
-          allItems = Object.values(data);
-        }
-        
+        const recipes = await recipesRes.json();
+        const allItems = Object.values(data.items || data);
         if (mounted) {
           setCachedItems(allItems);
+          setItemsMap(data.items || {});
           setGatheringData(gathering.points || {});
+          setRecipeData(recipes.recipes || {});
           setIsInitializing(false);
         }
       } catch (err) {
-        if (mounted) {
-          setError(err.message || '發生未知錯誤');
-          setIsInitializing(false);
-        }
+        if (mounted) { setError(err.message); setIsInitializing(false); }
       }
     };
-
-    initializeCache();
-
-    return () => {
-      mounted = false;
-    };
+    init();
+    return () => { mounted = false; };
   }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
     if (!searchTerm.trim() || cachedItems.length === 0) return;
-
-    setError(null);
+    setSelectedItem(null);
     const term = searchTerm.toLowerCase();
-    
-    // 精準搜尋：我們找物品的所有「名稱」相關欄位包含關鍵字的（如 name, name_tc, name_chs 等）
     const filtered = cachedItems.filter(item => {
       if (!item) return false;
-      
       for (const key of Object.keys(item)) {
         if (key.toLowerCase().includes('name')) {
           const val = item[key];
-          if (typeof val === 'string' && val.toLowerCase().includes(term)) {
-            return true;
-          }
+          if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
         }
       }
       return false;
     });
-
-    // 依據需求，結果只保留 id 與 name
-    const simplifiedResults = filtered.map(item => ({
-      id: item.id,
-      name: item.name
-    }));
-
-    // 為避免畫面卡頓，我們只顯示前 50 筆結果
-    setResults(simplifiedResults.slice(0, 50));
+    setResults(filtered.slice(0, 50));
   };
 
+  // ── Recursive ingredient tree ─────────────────────────────────
+  const resolveTree = (ingredients, depth = 0, visited = new Set()) =>
+    (ingredients || []).map(ing => {
+      const ingId = String(ing.itemId);
+      const name = itemsMap[ingId]?.name || `#${ingId}`;
+      const subRecipes = recipeData[ingId];
+      const hasSubRecipe = subRecipes?.length > 0 && !visited.has(ingId);
+      const children = hasSubRecipe
+        ? resolveTree(subRecipes[0].ingredients || [], depth + 1, new Set([...visited, ingId]))
+        : [];
+      return { id: ingId, name, amount: ing.amount, children, depth };
+    });
+
+  const depthColors = [
+    'border-amber-400 bg-amber-50 text-amber-900',
+    'border-sky-400 bg-sky-50 text-sky-900',
+    'border-emerald-400 bg-emerald-50 text-emerald-900',
+    'border-purple-400 bg-purple-50 text-purple-900',
+  ];
+
+  const renderNode = (node) => (
+    <div key={`${node.id}-${node.depth}`} className="flex flex-col gap-0.5">
+      <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg border-l-4 text-sm ${depthColors[node.depth % depthColors.length]}`}>
+        <span className="font-semibold">{node.name}</span>
+        <span className="ml-3 font-black opacity-60 shrink-0">×{node.amount}</span>
+      </div>
+      {node.children.length > 0 && (
+        <div className="ml-5 flex flex-col gap-0.5 border-l-2 border-slate-200 pl-3 mt-0.5">
+          {node.children.map(renderNode)}
+        </div>
+      )}
+    </div>
+  );
+
+  // ── Loading screen ────────────────────────────────────────────
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8">
-        <div className="bg-white p-10 rounded-2xl shadow-2xl flex flex-col items-center max-w-md w-full border border-slate-100 animate-in zoom-in duration-500">
-          <div className="relative mb-8">
-            <div className="absolute inset-0 bg-indigo-100 rounded-full animate-ping opacity-75"></div>
-            <div className="relative bg-indigo-600 text-white p-4 rounded-full shadow-lg">
-              <Database size={40} className="animate-pulse" />
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="bg-white p-10 rounded-2xl shadow-xl flex flex-col items-center gap-5 max-w-sm w-full">
+          <div className="relative">
+            <div className="absolute inset-0 bg-indigo-100 rounded-full animate-ping opacity-75" />
+            <div className="relative bg-indigo-600 text-white p-4 rounded-full">
+              <Database size={36} className="animate-pulse" />
             </div>
           </div>
-          <h2 className="text-2xl font-black text-slate-800 mb-2">建立快取中...</h2>
-          <p className="text-slate-500 text-center text-sm leading-relaxed">
-            正在背景為您下載超過 40,000 筆 FF14 物品資料。<br />
-            （這是達成零延遲「秒搜」的秘密武器！）
-          </p>
-          <div className="w-full bg-slate-100 rounded-full h-2 mt-8 overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full w-full animate-pulse"></div>
+          <h2 className="text-xl font-black text-slate-800">建立快取中...</h2>
+          <p className="text-slate-400 text-sm text-center">正在下載 FF14 物品資料庫，完成後即可秒搜</p>
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 h-1.5 rounded-full w-full animate-pulse" />
           </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* 搜尋區塊 */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-black text-slate-800 flex items-center gap-3">
-              <Search className="text-indigo-600" size={32} />
-              查找物品
-            </h1>
-            <div className="hidden sm:flex items-center gap-2 bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-sm font-bold border border-emerald-200">
-              <Database size={16} />
-              已快取 {cachedItems.length.toLocaleString()} 筆資料
+  // ── Detail panel ──────────────────────────────────────────────
+  const renderDetail = () => {
+    if (!selectedItem) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-4 py-20">
+          <Box size={64} strokeWidth={1} />
+          <p className="font-medium text-lg">點擊左側物品查看詳情</p>
+        </div>
+      );
+    }
+    const id = String(selectedItem.id);
+    const nodes = gatheringData[id] || [];
+    const recipes = recipeData[id] || [];
+
+    return (
+      <div className="flex flex-col gap-6">
+        {/* 物品名稱 */}
+        <div className="border-b border-slate-200 pb-4">
+          <h2 className="text-2xl font-black text-slate-800">{selectedItem.name}</h2>
+          <p className="text-xs text-slate-400 mt-1">ID: {selectedItem.id}</p>
+        </div>
+
+        {/* 採集地點 */}
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-black text-indigo-700 uppercase tracking-wide mb-3">
+            <Pickaxe size={15} /> 採集地點
+          </h3>
+          {nodes.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {nodes.map((node, i) => (
+                <div key={node.id || i} className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex flex-col gap-1 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-indigo-400 rounded-l-xl" />
+                  <div className="flex items-center gap-2 font-bold text-slate-800 pl-2 text-sm">
+                    <MapPin size={13} className="text-indigo-500 shrink-0" />
+                    {node.placeName}
+                  </div>
+                  <div className="flex items-center gap-2 pl-2 flex-wrap">
+                    <span className="text-xs bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded font-medium">
+                      X:{node.x} , Y:{node.y}
+                    </span>
+                    <span className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded font-black">
+                      Lv.{node.level}{node.stars ? ` ${'★'.repeat(node.stars)}` : ''}
+                    </span>
+                    <span className="text-xs text-slate-400">{node.gatheringTypeName}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-          
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
-            <input
-              type="text"
-              placeholder="請輸入精確的物品名稱 (例如：水族箱)..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-grow px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg"
-            />
-            <button
-              type="submit"
-              disabled={!searchTerm.trim()}
-              className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg whitespace-nowrap"
-            >
-              <Search size={24} />
-              瞬間搜尋
-            </button>
-          </form>
-          
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-xl border border-red-200 font-medium">
-              {error}
-            </div>
+          ) : (
+            <p className="text-sm text-slate-400 bg-slate-50 rounded-xl p-3 text-center">此物品無法採集</p>
           )}
         </div>
 
-        {/* 結果顯示區塊 (排版列表) */}
-        {results && (
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
-              搜尋結果
-              <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full border border-indigo-100 shadow-sm">
-                共找到 {results.length} 個物品
-              </span>
-            </h2>
-            
-            {results.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4">
-                {results.map((item) => {
-                  const isSelected = selectedItem?.id === item.id;
-                  const nodes = gatheringData[item.id] || [];
-                  
-                  return (
-                    <div 
-                      key={item.id} 
-                      onClick={() => setSelectedItem(isSelected ? null : item)}
-                      className={`group flex items-center gap-5 p-5 rounded-2xl border transition-all duration-300 cursor-pointer ${
-                        isSelected 
-                          ? 'bg-indigo-50 border-indigo-300 shadow-md ring-1 ring-indigo-200' 
-                          : 'bg-slate-50 border-slate-200 hover:bg-white hover:shadow-xl hover:border-indigo-300 transform hover:-translate-y-1'
-                      }`}
-                    >
-                      <div className={`bg-white p-3.5 rounded-xl shadow-sm border transition-colors overflow-hidden ${isSelected ? 'border-indigo-400 bg-indigo-100' : 'border-slate-200 group-hover:border-indigo-400 group-hover:bg-indigo-50'}`}>
-                        <Box className={`${isSelected ? 'text-indigo-600' : 'text-slate-400 group-hover:text-indigo-600'} transition-colors drop-shadow-sm`} size={28} />
-                      </div>
-                      
-                      <div className="flex-grow">
-                        <h3 className={`text-xl font-black transition-colors tracking-wide ${isSelected ? 'text-indigo-800' : 'text-slate-700 group-hover:text-indigo-700'}`}>
-                          {item.name}
-                        </h3>
-                        
-                        {/* 展開詳情區塊 */}
-                        {isSelected && (
-                          <div className="mt-4 pt-4 border-t border-indigo-200 animate-in slide-in-from-top-2 fade-in duration-300">
-                            <h4 className="flex items-center gap-2 text-sm font-bold text-indigo-700 mb-3">
-                              <Pickaxe size={16} /> 採集地點 / 來源
-                            </h4>
-                            
-                            {nodes.length > 0 ? (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {nodes.map((node, i) => (
-                                  <div key={node.id || i} className="bg-white rounded-xl p-4 border border-indigo-100 shadow-sm flex flex-col gap-2 relative overflow-hidden">
-                                     <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 rounded-l-xl"></div>
-                                     <div className="flex items-center gap-2 font-bold text-slate-800 pl-2">
-                                       <MapPin size={16} className="text-indigo-500" />
-                                       <span>{node.placeName}</span>
-                                     </div>
-                                     <div className="flex items-center gap-3 text-sm pl-2">
-                                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium border border-slate-200">
-                                          X:{node.x} , Y:{node.y}
-                                        </span>
-                                        <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black border border-emerald-200 tracking-wide">
-                                          Lv.{node.level} {node.stars && <span className="text-amber-500 ml-1">{node.stars}</span>}
-                                        </span>
-                                     </div>
-                                     <div className="text-xs text-slate-400 pl-2 mt-1">
-                                       {node.gatheringTypeName}
-                                     </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="bg-white rounded-xl p-4 border border-indigo-100 shadow-sm text-center">
-                                <span className="text-slate-500 font-medium text-sm">此物品目前沒有紀錄採集地點，或是需要透過製作/交換取得。</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      
-                      {!isSelected && (
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity min-w-[80px]">
-                          <div className="text-sm font-black text-indigo-600 bg-indigo-100 px-4 py-2 rounded-full text-center hover:bg-indigo-200 hover:text-indigo-800 transition-colors shadow-sm">
-                            查看地點
-                          </div>
-                        </div>
-                      )}
+        {/* 製作配方 */}
+        {recipes.length > 0 && (
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-black text-amber-700 uppercase tracking-wide mb-3">
+              <Hammer size={15} /> 製作配方
+            </h3>
+            <div className="flex flex-col gap-4">
+              {recipes.map((recipe, ri) => {
+                const tree = resolveTree(recipe.ingredients || []);
+                return (
+                  <div key={recipe.id || ri} className="bg-white border border-amber-200 rounded-xl p-4 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-amber-400 rounded-l-xl" />
+                    <div className="flex items-center gap-2 mb-3 pl-2">
+                      <span className="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-black text-xs border border-amber-300">
+                        {recipe.craftTypeName}
+                      </span>
+                      <span className="text-xs text-slate-400">Lv.{recipe.recipeLevel} → ×{recipe.resultAmount}</span>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 bg-slate-50 rounded-2xl border-2 border-slate-200 border-dashed">
-                <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-                  <Box className="text-slate-300" size={48} />
-                </div>
-                <p className="text-slate-600 font-bold text-lg">沒有找到名稱完全包含這個關鍵字的物品！</p>
-                <p className="text-slate-400 text-sm mt-2 font-medium">請嘗試更換其他關鍵字，或是輸入部分名稱看看</p>
-              </div>
-            )}
+                    <div className="flex flex-col gap-1 pl-2">
+                      {tree.map(renderNode)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // ── Main layout ───────────────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-slate-100 flex flex-col">
+      {/* Top bar */}
+      <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
+        <div className="bg-indigo-600 p-1.5 rounded-lg text-white"><Search size={18} /></div>
+        <span className="font-black text-slate-800 text-lg">FF14 物品查詢</span>
+        <div className="ml-auto text-xs text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full font-bold border border-emerald-200">
+          <Database size={12} className="inline mr-1" />{cachedItems.length.toLocaleString()} 筆已快取
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 57px)' }}>
+        {/* ── Left panel ── */}
+        <div className="w-80 shrink-0 bg-white border-r border-slate-200 flex flex-col overflow-hidden">
+          {/* Search form */}
+          <form onSubmit={handleSearch} className="p-4 border-b border-slate-100">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="輸入物品名稱..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="flex-grow text-sm px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+              />
+              <button
+                type="submit"
+                disabled={!searchTerm.trim()}
+                className="bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-40 shrink-0"
+              >
+                <Search size={16} />
+              </button>
+            </div>
+            {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
+          </form>
+
+          {/* Results list */}
+          <div className="flex-1 overflow-y-auto">
+            {results.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-300 gap-3">
+                <Box size={40} strokeWidth={1} />
+                <p className="text-sm">搜尋以顯示結果</p>
+              </div>
+            )}
+            {results.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedItem(item)}
+                className={`w-full text-left px-4 py-3 flex items-center justify-between border-b border-slate-100 hover:bg-indigo-50 transition-colors group ${selectedItem?.id === item.id ? 'bg-indigo-50 border-l-4 border-l-indigo-500' : 'border-l-4 border-l-transparent'}`}
+              >
+                <span className={`text-sm font-medium ${selectedItem?.id === item.id ? 'text-indigo-700 font-bold' : 'text-slate-700'}`}>
+                  {item.name}
+                </span>
+                <ChevronRight size={14} className={`shrink-0 transition-colors ${selectedItem?.id === item.id ? 'text-indigo-500' : 'text-slate-300 group-hover:text-indigo-400'}`} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Right panel ── */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-2xl mx-auto">
+            {renderDetail()}
+          </div>
+        </div>
       </div>
     </div>
   );
