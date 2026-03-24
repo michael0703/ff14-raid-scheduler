@@ -78,11 +78,27 @@ const SearchItem = () => {
 
   const handleAddToTracker = (item, amount = 1) => {
     setTrackedItems(prev => {
+      let nextList;
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
-        return prev.map(i => i.id === item.id ? { ...i, amount: i.amount + amount } : i);
+        nextList = prev.map(i => i.id === item.id ? { ...i, amount: i.amount + amount } : i);
+      } else {
+        nextList = [...prev, { id: item.id, name: item.name, amount }];
       }
-      return [...prev, { id: item.id, name: item.name, amount }];
+
+      // ── Sorting Logic ──
+      // Group by mapId, then secondary sort by name
+      const getSortKey = (id) => {
+        const nodes = gatheringData[String(id)] || [];
+        return nodes.length > 0 ? (nodes[0].mapId || 999999) : 999999;
+      };
+
+      return [...nextList].sort((a, b) => {
+        const keyA = getSortKey(a.id);
+        const keyB = getSortKey(b.id);
+        if (keyA !== keyB) return keyA - keyB;
+        return a.name.localeCompare(b.name, 'zh-Hant');
+      });
     });
   };
 
