@@ -229,19 +229,34 @@ const SearchItem = () => {
           </span>
           <span className="shrink-0 text-slate-400 dark:text-slate-500">X:{firstNode.x}, Y:{firstNode.y}</span>
         </div>
-        <div className="relative aspect-video w-full bg-slate-100 rounded overflow-hidden border border-slate-200">
+        <div className="relative aspect-video w-full bg-slate-100 dark:bg-slate-900 rounded overflow-hidden border border-slate-200 dark:border-slate-700">
           <img 
             src={`https://xivapi.com/m/${miniMapInfo.path}.jpg`} 
             alt={firstNode.placeName}
-            className="w-full h-full object-cover opacity-90"
+            className="w-full h-full object-cover dark:opacity-80"
           />
+          
+          {/* Aetheryte Markers */}
+          {miniMapInfo.aetherytes?.map(ae => (
+            <div 
+              key={ae.id}
+              className="absolute w-5 h-5 -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-125 z-10"
+              style={{ left: getMarkerPos(ae.x, miniMapInfo.sizeFactor), top: getMarkerPos(ae.y, miniMapInfo.sizeFactor) }}
+              title={ae.name}
+            >
+              <div className="absolute inset-0 bg-blue-400/30 rounded-full blur-[2px] animate-pulse" />
+              <img src="https://xivapi.com/i/060000/060453.png" alt={ae.name} className="w-full h-full relative z-10 drop-shadow-md" />
+            </div>
+          ))}
+
+          {/* Gathering Node Marker */}
           <div 
-            className="absolute w-2 h-2 bg-red-600 rounded-full border border-white shadow-sm z-10 translate-x-[-50%] translate-y-[-50%]"
-            style={{ 
-              left: getMarkerPos(firstNode.x, miniMapInfo.sizeFactor), 
-              top: getMarkerPos(firstNode.y, miniMapInfo.sizeFactor) 
-            }}
-          />
+            className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 z-20"
+            style={{ left: getMarkerPos(firstNode.x, miniMapInfo.sizeFactor), top: getMarkerPos(firstNode.y, miniMapInfo.sizeFactor) }}
+          >
+            <div className="absolute inset-0 bg-red-500/40 rounded-full blur-[3px] animate-ping duration-1000" />
+            <img src="https://xivapi.com/i/060000/060432.png" alt="Node" className="w-full h-full relative z-10 drop-shadow-lg" />
+          </div>
         </div>
       </div>
     );
@@ -400,14 +415,30 @@ const SearchItem = () => {
                             alt={node.placeName}
                             className="w-full h-full object-cover dark:opacity-80"
                           />
-                          {/* 紅點標記 */}
+                          {/* Aetheryte Markers */}
+                          {mapInfo.aetherytes?.map(ae => (
+                            <div 
+                              key={ae.id}
+                              className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-125 z-10"
+                              style={{ left: getMarkerPos(ae.x, mapInfo.sizeFactor), top: getMarkerPos(ae.y, mapInfo.sizeFactor) }}
+                              title={ae.name}
+                            >
+                              <div className="absolute inset-0 bg-blue-400/30 rounded-full blur-[2px] animate-pulse" />
+                              <img src="https://xivapi.com/i/060000/060453.png" alt={ae.name} className="w-full h-full relative z-10 drop-shadow-md" />
+                            </div>
+                          ))}
+
+                          {/* 採集物標記 */}
                           <div 
-                            className="absolute w-3 h-3 bg-red-600 rounded-full border-2 border-white shadow-[0_0_10px_rgba(220,38,38,0.8)] z-10 translate-x-[-50%] translate-y-[-50%] animate-pulse"
+                            className="absolute w-8 h-8 -translate-x-1/2 -translate-y-1/2 z-20"
                             style={{ 
                               left: getMarkerPos(node.x, mapInfo.sizeFactor), 
                               top: getMarkerPos(node.y, mapInfo.sizeFactor) 
                             }}
-                          />
+                          >
+                            <div className="absolute inset-0 bg-red-500/40 rounded-full blur-[4px] animate-ping duration-1000" />
+                            <img src="https://xivapi.com/i/060000/060432.png" alt="Node" className="w-full h-full relative z-10 drop-shadow-lg" />
+                          </div>
                         </div>
                         <p className="text-[10px] text-center text-slate-400 mt-2 font-medium">
                           數據來源: XIVAPI | 地圖倍率: {mapInfo.sizeFactor}
