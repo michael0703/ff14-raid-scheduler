@@ -355,9 +355,20 @@ const SearchItem = () => {
         )}
         {/* 物品名稱 */}
         <div className="border-b-2 border-slate-100 dark:border-slate-800 pb-5 flex justify-between items-end">
-          <div>
-            <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{selectedItem.name}</h2>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-1.5 font-medium">ID: {selectedItem.id}</p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{selectedItem.name}</h2>
+              {nodes.length > 0 ? (
+                <span className="flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800">
+                  <Pickaxe size={10} /> 可採集
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700">
+                  非採集物品
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">ID: {selectedItem.id}</p>
           </div>
           <button
             onClick={() => handleAddToTracker(selectedItem, 1)}
@@ -450,7 +461,11 @@ const SearchItem = () => {
               })}
             </div>
           ) : (
-            <p className="text-sm text-slate-400 dark:text-slate-600 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 text-center border dark:border-slate-800 transition-colors">此物品無法採集</p>
+            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-8 text-center border border-dashed border-slate-200 dark:border-slate-800 transition-colors">
+              <Database size={32} className="mx-auto text-slate-300 dark:text-slate-700 mb-3 opacity-50" />
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">此物品目前無採集資料</p>
+              <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">可能是製作、購買、或特殊獲取物。</p>
+            </div>
           )}
         </div>
 
@@ -639,9 +654,19 @@ const SearchItem = () => {
                 }}
                 className={`w-full text-left px-5 py-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors group ${selectedItem?.id === item.id ? 'bg-indigo-50 dark:bg-indigo-900/30 border-l-4 border-l-indigo-500' : 'border-l-4 border-l-transparent'}`}
               >
-                <span className={`text-base font-semibold ${selectedItem?.id === item.id ? 'text-indigo-700 dark:text-indigo-400 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
-                  {item.name}
-                </span>
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-base font-semibold truncate ${selectedItem?.id === item.id ? 'text-indigo-700 dark:text-indigo-400 font-bold' : 'text-slate-700 dark:text-slate-300'}`}>
+                      {item.name}
+                    </span>
+                    {gatheringData[item.id] && gatheringData[item.id].length > 0 && (
+                      <div className="shrink-0 text-emerald-500 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 p-0.5 rounded" title="可採集">
+                        <Pickaxe size={12} />
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 tabular-nums">ID: {item.id}</span>
+                </div>
                 <ChevronRight size={18} className={`shrink-0 transition-colors ${selectedItem?.id === item.id ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-300 dark:text-slate-700 group-hover:text-indigo-400'}`} />
               </button>
             ))}
