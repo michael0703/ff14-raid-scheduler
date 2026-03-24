@@ -9,6 +9,7 @@ const SearchItem = () => {
   const [results, setResults] = useState([]);
   const [gatheringData, setGatheringData] = useState({});
   const [recipeData, setRecipeData] = useState({});
+  const [sourcesData, setSourcesData] = useState({});
   const [mapData, setMapData] = useState({});
   const [itemsMap, setItemsMap] = useState({});
   const [selectedItem, setSelectedItem] = useState(null);
@@ -38,24 +39,27 @@ const SearchItem = () => {
     let mounted = true;
     const init = async () => {
       try {
-        const [itemsRes, gatheringRes, recipesRes, mapsRes] = await Promise.all([
+        const [itemsRes, gatheringRes, recipesRes, mapsRes, sourcesRes] = await Promise.all([
           fetch(`${import.meta.env.BASE_URL}data/items.json`),
           fetch(`${import.meta.env.BASE_URL}data/gathering.json`),
           fetch(`${import.meta.env.BASE_URL}data/recipes.json`),
           fetch(`${import.meta.env.BASE_URL}data/zone-maps.json`),
+          fetch(`${import.meta.env.BASE_URL}data/sources.json`),
         ]);
-        if (!itemsRes.ok || !gatheringRes.ok || !recipesRes.ok || !mapsRes.ok)
+        if (!itemsRes.ok || !gatheringRes.ok || !recipesRes.ok || !mapsRes.ok || !sourcesRes.ok)
           throw new Error('無法取得資料');
         const data = await itemsRes.json();
         const gathering = await gatheringRes.json();
         const recipes = await recipesRes.json();
         const maps = await mapsRes.json();
+        const sources = await sourcesRes.json();
         const allItems = Object.values(data.items || data);
         if (mounted) {
           setCachedItems(allItems);
           setItemsMap(data.items || {});
           setGatheringData(gathering.points || {});
           setRecipeData(recipes.recipes || {});
+          setSourcesData(sources.sources || {});
           
           // Pre-index maps by ID for faster lookup
           const mapsById = {};
@@ -496,6 +500,58 @@ const SearchItem = () => {
             </div>
           </div>
         )}
+
+        {/* 獲取來源 */}
+        {sourcesData[id] && sourcesData[id].length > 0 && (
+          <div>
+            <h3 className="flex items-center gap-2 text-base font-black text-emerald-700 dark:text-emerald-500 uppercase tracking-wider mb-4">
+              <ShoppingBag size={18} /> 獲取來源
+            </h3>
+            <div className="grid grid-cols-1 gap-3">
+              {sourcesData[id].map((source, si) => {
+                const isGC = source.type === 'gcshop';
+                const isVendor = source.type === 'vendor';
+                
+                return (
+                  <div key={si} className={`p-4 rounded-xl border flex flex-col gap-2 ${
+                    isGC ? 'bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30' : 
+                    'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${
+                          isGC ? 'bg-indigo-600 text-white border-indigo-500' :
+                          'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                        }`}>
+                          {source.typeName}
+                        </span>
+                        {isGC && <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">軍票兌換</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                        <span className="text-xs font-black text-slate-700 dark:text-slate-300">{source.price?.toLocaleString()}</span>
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                          {source.currency === 'gc_seals' ? '軍票' : '金幣'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {source.vendors && source.vendors.map((vendor, vi) => (
+                      <div key={vi} className="flex flex-col gap-0.5 mt-1 border-t border-slate-100 dark:border-slate-800 pt-2 first:border-t-0 first:pt-0">
+                        <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
+                          <MapPin size={12} className="text-indigo-500" />
+                          {vendor.npcName}
+                        </div>
+                        <div className="text-xs text-slate-400 dark:text-slate-500 pl-5">
+                          {vendor.zoneName}{vendor.x ? ` (X:${vendor.x}, Y:${vendor.y})` : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -662,6 +718,11 @@ const SearchItem = () => {
                     {gatheringData[item.id] && gatheringData[item.id].length > 0 && (
                       <div className="shrink-0 text-emerald-500 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 p-0.5 rounded" title="可採集">
                         <Pickaxe size={12} />
+                      </div>
+                    )}
+                    {sourcesData[item.id] && sourcesData[item.id].some(s => s.type === 'gcshop') && (
+                      <div className="shrink-0 text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 p-0.5 rounded" title="軍票兌換">
+                        <ShoppingBag size={12} />
                       </div>
                     )}
                   </div>
