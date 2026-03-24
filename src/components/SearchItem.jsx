@@ -47,8 +47,8 @@ const SearchItem = () => {
           // Pre-index maps by ID for faster lookup
           const mapsById = {};
           if (maps.maps) {
-            Object.values(maps.maps).forEach(m => {
-              if (m.id) mapsById[m.id] = m;
+            Object.entries(maps.maps).forEach(([name, m]) => {
+              if (m.id) mapsById[m.id] = { ...m, zoneName: name };
             });
           }
           setMapData(mapsById);
@@ -211,8 +211,10 @@ const SearchItem = () => {
     return (
       <div className="mx-2 my-2 bg-white border border-slate-200 rounded-lg p-2 shadow-sm animate-in zoom-in-95 duration-200">
         <div className="text-[10px] font-black text-indigo-600 mb-1 flex items-center justify-between">
-          <span>{firstNode.placeName} (Lv.{firstNode.level})</span>
-          <span>X:{firstNode.x}, Y:{firstNode.y}</span>
+          <span className="truncate mr-2">
+            {miniMapInfo.zoneName ? `${miniMapInfo.zoneName} - ` : ''}{firstNode.placeName} (Lv.{firstNode.level})
+          </span>
+          <span className="shrink-0">X:{firstNode.x}, Y:{firstNode.y}</span>
         </div>
         <div className="relative aspect-video w-full bg-slate-100 rounded overflow-hidden border border-slate-200">
           <img 
@@ -359,7 +361,7 @@ const SearchItem = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 font-bold text-slate-800 pl-2 text-sm">
                           <MapPin size={13} className="text-indigo-500 shrink-0" />
-                          {node.placeName}
+                          {mapInfo?.zoneName ? `${mapInfo.zoneName} - ` : ''}{node.placeName}
                         </div>
                         <div className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">
                           {isMapVisible ? '隱藏地圖' : '顯示地圖'}
