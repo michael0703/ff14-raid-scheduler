@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Search, Ship } from 'lucide-react';
+import { Shield, Search } from 'lucide-react';
 
 const HomePage = () => {
   return (
@@ -21,7 +21,6 @@ const HomePage = () => {
             <nav className="hidden md:flex items-center gap-6">
               <Link to="/" className="text-blue-600 font-black text-sm">首頁</Link>
               <Link to="/search-item" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">查找物品</Link>
-              <Link to="/submarine" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">潛水艇採集</Link>
             </nav>
           </div>
         </div>
@@ -40,11 +39,11 @@ const HomePage = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                to="/submarine"
+                to="/search-item"
                 className="inline-flex items-center gap-2 bg-blue-600 text-white px-10 py-5 rounded-xl font-black shadow-lg hover:bg-blue-700 transition-all active:scale-95 text-lg"
               >
-                <Ship size={24} />
-                潛水艇採集
+                <Search size={24} />
+                查找物品
               </Link>
             </div>
           </div>
@@ -72,7 +71,6 @@ const HomePage = () => {
               <h4 className="font-black mb-4">工具</h4>
               <ul className="space-y-2 text-sm text-slate-400">
                 <li><Link to="/search-item" className="hover:text-white transition-colors">查找物品</Link></li>
-                <li><Link to="/submarine" className="hover:text-white transition-colors">潛水艇採集</Link></li>
               </ul>
             </div>
 
