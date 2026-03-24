@@ -209,12 +209,12 @@ const SearchItem = () => {
     if (!miniMapInfo) return null;
 
     return (
-      <div className="mx-2 my-2 bg-white border border-slate-200 rounded-lg p-2 shadow-sm animate-in zoom-in-95 duration-200">
-        <div className="text-[10px] font-black text-indigo-600 mb-1 flex items-center justify-between">
+      <div className="mx-2 my-1.5 bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm animate-in zoom-in-95 duration-200">
+        <div className="text-xs font-black text-indigo-600 mb-1.5 flex items-center justify-between">
           <span className="truncate mr-2">
             {miniMapInfo.zoneName ? `${miniMapInfo.zoneName} - ` : ''}{firstNode.placeName} (Lv.{firstNode.level})
           </span>
-          <span className="shrink-0">X:{firstNode.x}, Y:{firstNode.y}</span>
+          <span className="shrink-0 text-slate-400">X:{firstNode.x}, Y:{firstNode.y}</span>
         </div>
         <div className="relative aspect-video w-full bg-slate-100 rounded overflow-hidden border border-slate-200">
           <img 
@@ -241,10 +241,10 @@ const SearchItem = () => {
     const hasGathering = ingredientNodes.length > 0;
 
     return (
-      <div key={nodeKey} className="flex flex-col gap-0.5">
+      <div key={nodeKey} className="flex flex-col gap-1">
         <div 
           onClick={() => hasGathering && toggleIngredientMap(nodeKey)}
-          className={`flex items-center justify-between px-3 py-1.5 rounded-lg border-l-4 text-sm transition-all ${
+          className={`flex items-center justify-between px-4 py-2 rounded-lg border-l-4 text-base transition-all ${
             depthColors[node.depth % depthColors.length]
           } ${hasGathering ? 'cursor-pointer hover:brightness-95 active:scale-[0.98]' : 'cursor-default'}`}
         >
@@ -326,10 +326,10 @@ const SearchItem = () => {
           </button>
         )}
         {/* 物品名稱 */}
-        <div className="border-b border-slate-200 pb-4 flex justify-between items-end">
+        <div className="border-b-2 border-slate-100 pb-5 flex justify-between items-end">
           <div>
-            <h2 className="text-2xl font-black text-slate-800">{selectedItem.name}</h2>
-            <p className="text-xs text-slate-400 mt-1">ID: {selectedItem.id}</p>
+            <h2 className="text-3xl font-black text-slate-800 tracking-tight">{selectedItem.name}</h2>
+            <p className="text-sm text-slate-400 mt-1.5 font-medium">ID: {selectedItem.id}</p>
           </div>
           <button
             onClick={() => handleAddToTracker(selectedItem, 1)}
@@ -342,8 +342,8 @@ const SearchItem = () => {
 
         {/* 採集地點 */}
         <div>
-          <h3 className="flex items-center gap-2 text-sm font-black text-indigo-700 uppercase tracking-wide mb-3">
-            <Pickaxe size={15} /> 採集地點
+          <h3 className="flex items-center gap-2 text-base font-black text-indigo-700 uppercase tracking-wider mb-4">
+            <Pickaxe size={18} /> 採集地點
           </h3>
           {nodes.length > 0 ? (
             <div className="flex flex-col gap-3">
@@ -359,22 +359,22 @@ const SearchItem = () => {
                     >
                       <div className="absolute top-0 left-0 w-1 h-full bg-indigo-400" />
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 font-bold text-slate-800 pl-2 text-sm">
-                          <MapPin size={13} className="text-indigo-500 shrink-0" />
+                        <div className="flex items-center gap-2 font-bold text-slate-800 pl-2 text-base">
+                          <MapPin size={15} className="text-indigo-500 shrink-0" />
                           {mapInfo?.zoneName ? `${mapInfo.zoneName} - ` : ''}{node.placeName}
                         </div>
-                        <div className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">
+                        <div className="text-xs font-black uppercase text-indigo-400 tracking-widest">
                           {isMapVisible ? '隱藏地圖' : '顯示地圖'}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 pl-2 flex-wrap">
-                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-black border border-indigo-200">
+                      <div className="flex items-center gap-2 pl-2 mt-1 flex-wrap">
+                        <span className="text-sm bg-indigo-100 text-indigo-700 px-3 py-1 rounded font-black border border-indigo-200">
                           X:{node.x} , Y:{node.y}
                         </span>
-                        <span className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded font-black">
+                        <span className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1 rounded font-black">
                           Lv.{node.level}{node.stars ? ` ${'★'.repeat(node.stars)}` : ''}
                         </span>
-                        <span className="text-xs text-slate-400 font-medium">{node.gatheringTypeName}</span>
+                        <span className="text-sm text-slate-400 font-bold">{node.gatheringTypeName}</span>
                       </div>
                     </div>
 
@@ -413,8 +413,8 @@ const SearchItem = () => {
         {/* 製作配方 */}
         {recipes.length > 0 && (
           <div>
-            <h3 className="flex items-center gap-2 text-sm font-black text-amber-700 uppercase tracking-wide mb-3">
-              <Hammer size={15} /> 製作配方
+            <h3 className="flex items-center gap-2 text-base font-black text-amber-700 uppercase tracking-wider mb-4">
+              <Hammer size={18} /> 製作配方
             </h3>
             <div className="flex flex-col gap-4">
               {recipes.map((recipe, ri) => {
@@ -422,11 +422,11 @@ const SearchItem = () => {
                 return (
                   <div key={recipe.id || ri} className="bg-white border border-amber-200 rounded-xl p-4 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1 h-full bg-amber-400 rounded-l-xl" />
-                    <div className="flex items-center gap-2 mb-3 pl-2">
-                      <span className="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-black text-xs border border-amber-300">
+                    <div className="flex items-center gap-3 mb-4 pl-2">
+                      <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full font-black text-sm border border-amber-300">
                         {recipe.craftTypeName}
                       </span>
-                      <span className="text-xs text-slate-400">Lv.{recipe.recipeLevel} → ×{recipe.resultAmount}</span>
+                      <span className="text-sm text-slate-400 font-medium">Lv.{recipe.recipeLevel} → ×{recipe.resultAmount}</span>
                     </div>
                     <div className="flex flex-col gap-1 pl-2">
                       {tree.map(renderNode)}
@@ -445,13 +445,13 @@ const SearchItem = () => {
     return (
       <div className="h-full flex flex-col bg-slate-50 border-l border-slate-200 w-72 shrink-0 overflow-hidden">
         <header className="p-4 border-b border-slate-200 bg-white flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-black text-slate-700 uppercase tracking-wide">
-            <ShoppingBag size={16} className="text-emerald-500" /> 追蹤清單
+          <h3 className="flex items-center gap-2 text-base font-black text-slate-700 uppercase tracking-wide">
+            <ShoppingBag size={18} className="text-emerald-500" /> 追蹤清單
           </h3>
           {trackedItems.length > 0 && (
             <button 
               onClick={() => setTrackedItems([])}
-              className="text-[10px] font-bold text-slate-400 hover:text-red-500 transition-colors uppercase"
+              className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase"
             >
               全部清除
             </button>
@@ -476,10 +476,10 @@ const SearchItem = () => {
                     onClick={() => hasMap && toggleTrackerMap(item.id)}
                     className={`p-3 transition-colors ${hasMap ? 'cursor-pointer hover:bg-slate-50' : ''}`}
                   >
-                    <div className="flex justify-between items-start mb-1">
-                      <div className="flex items-center gap-1.5 truncate flex-1">
+                    <div className="flex justify-between items-start mb-1.5">
+                      <div className="flex items-center gap-2 truncate flex-1">
                         <span 
-                          className="text-xs font-bold text-slate-700 truncate hover:text-indigo-600 hover:underline cursor-pointer"
+                          className="text-sm font-bold text-slate-700 truncate hover:text-indigo-600 hover:underline cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation();
                             if (itemsMap[item.id]) setSelectedItem(itemsMap[item.id]);
@@ -488,7 +488,7 @@ const SearchItem = () => {
                           {item.name}
                         </span>
                         {hasMap && (
-                          <MapPin size={10} className={`${isExpanded ? 'text-red-500' : 'text-slate-400'} shrink-0`} />
+                          <MapPin size={12} className={`${isExpanded ? 'text-red-500' : 'text-slate-400'} shrink-0`} />
                         )}
                       </div>
                       <button 
@@ -502,8 +502,8 @@ const SearchItem = () => {
                       </button>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 font-medium tracking-tight">ID: {item.id}</span>
-                      <div className="bg-emerald-50 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-100">
+                      <span className="text-xs text-slate-400 font-bold tracking-tight">ID: {item.id}</span>
+                      <div className="bg-emerald-50 text-emerald-700 text-xs font-black px-2.5 py-1 rounded-full border border-emerald-100">
                         ×{item.amount}
                       </div>
                     </div>
@@ -521,10 +521,10 @@ const SearchItem = () => {
         </div>
         
         {trackedItems.length > 0 && (
-          <div className="p-4 bg-white border-t border-slate-200">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold text-slate-500">待收集項目</span>
-              <span className="text-xs font-black text-indigo-600">{trackedItems.length}</span>
+          <div className="p-5 bg-white border-t border-slate-200">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-sm font-bold text-slate-500">待收集項目</span>
+              <span className="text-base font-black text-indigo-600">{trackedItems.length}</span>
             </div>
           </div>
         )}
@@ -536,11 +536,11 @@ const SearchItem = () => {
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
       {/* Top bar */}
-      <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3 sticky top-0 z-10 shadow-sm">
-        <div className="bg-indigo-600 p-1.5 rounded-lg text-white"><Search size={18} /></div>
-        <span className="font-black text-slate-800 text-lg">FF14 物品查詢</span>
-        <div className="ml-auto text-xs text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full font-bold border border-emerald-200">
-          <Database size={12} className="inline mr-1" />{cachedItems.length.toLocaleString()} 筆已快取
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4 sticky top-0 z-10 shadow-sm">
+        <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-100"><Search size={22} /></div>
+        <span className="font-extrabold text-slate-800 text-xl tracking-tight">FF14 物品查詢</span>
+        <div className="ml-auto text-sm text-emerald-600 bg-emerald-50 px-4 py-1.5 rounded-full font-black border border-emerald-200">
+          <Database size={14} className="inline mr-1.5" />{cachedItems.length.toLocaleString()} 筆已快取
         </div>
       </header>
 
@@ -583,12 +583,12 @@ const SearchItem = () => {
                   setHistory([]);
                   setSelectedItem(item);
                 }}
-                className={`w-full text-left px-4 py-3 flex items-center justify-between border-b border-slate-100 hover:bg-indigo-50 transition-colors group ${selectedItem?.id === item.id ? 'bg-indigo-50 border-l-4 border-l-indigo-500' : 'border-l-4 border-l-transparent'}`}
+                className={`w-full text-left px-5 py-4 flex items-center justify-between border-b border-slate-100 hover:bg-indigo-50 transition-colors group ${selectedItem?.id === item.id ? 'bg-indigo-50 border-l-4 border-l-indigo-500' : 'border-l-4 border-l-transparent'}`}
               >
-                <span className={`text-sm font-medium ${selectedItem?.id === item.id ? 'text-indigo-700 font-bold' : 'text-slate-700'}`}>
+                <span className={`text-base font-semibold ${selectedItem?.id === item.id ? 'text-indigo-700 font-bold' : 'text-slate-700'}`}>
                   {item.name}
                 </span>
-                <ChevronRight size={14} className={`shrink-0 transition-colors ${selectedItem?.id === item.id ? 'text-indigo-500' : 'text-slate-300 group-hover:text-indigo-400'}`} />
+                <ChevronRight size={18} className={`shrink-0 transition-colors ${selectedItem?.id === item.id ? 'text-indigo-500' : 'text-slate-300 group-hover:text-indigo-400'}`} />
               </button>
             ))}
           </div>
