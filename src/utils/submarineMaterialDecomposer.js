@@ -53,6 +53,6 @@ export const decomposeMaterials = (requiredMaterials, recipes, items) => {
   return Object.entries(result).map(([name, required]) => ({
     name,
     required,
-    gathered: 0 // Will be populated by the caller from localStorage
+    gathered: 0 // Will be populated by the caller from Supabase data
   })).sort((a, b) => b.required - a.required);
 };

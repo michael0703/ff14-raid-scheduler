@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import submarineData from '../data/submarine_materials.json';
 import ItemDetailView from './ItemDetailView';
 import { decomposeMaterials } from '../utils/submarineMaterialDecomposer';
+import { supabase } from '../supabaseClient';
 
 const SubmarineGathering = () => {
   console.log('SubmarineGathering Component Rendered');
@@ -11,7 +12,7 @@ const SubmarineGathering = () => {
     船尾: '鯊魚級',
     艦橋: '鯊魚級',
   });
-  const [spreadsheetUrl, setSpreadsheetUrl] = useState(localStorage.getItem('submarine_gas_url') || '');
+  const [spreadsheetUrl, setSpreadsheetUrl] = useState('');
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -21,6 +22,7 @@ const SubmarineGathering = () => {
   const [itemsMap, setItemsMap] = useState(null);
   const [gatheringData, setGatheringData] = useState(null);
   const [dataLoading, setDataLoading] = useState(false);
+  const [supabaseCounts, setSupabaseCounts] = useState({});
 
   console.log('Full submarineData object:', submarineData);
   const classes = submarineData ? Object.keys(submarineData) : [];
@@ -39,6 +41,45 @@ const SubmarineGathering = () => {
       loadDeepData();
     }
   }, [isDeepView]);
+
+  // Initial fetch from Supabase
+  useEffect(() => {
+    const initSupabase = async () => {
+      try {
+        const { data, error } = await supabase.from('submarine_gathered').select('*');
+        if (error) throw error;
+        const counts = {};
+        data.forEach(row => {
+          counts[row.name] = row.count;
+        });
+        setSupabaseCounts(counts);
+      } catch (err) {
+        console.error('Initial Supabase fetch failed:', err);
+      }
+    };
+    initSupabase();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('submarine_realtime')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'submarine_gathered' }, 
+        (payload) => {
+          console.log('Realtime change received:', payload);
+          if (payload.new) {
+            setSupabaseCounts(prev => ({
+              ...prev,
+              [payload.new.name]: payload.new.count
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const loadDeepData = async () => {
     setDataLoading(true);
@@ -64,11 +105,6 @@ const SubmarineGathering = () => {
     }
   };
 
-  // Load saved gathered counts from localStorage on first run
-  const getSavedGatheredCounts = () => {
-    const saved = localStorage.getItem('submarine_gathered_counts');
-    return saved ? JSON.parse(saved) : {};
-  };
 
   const calculateTotalMaterials = () => {
     console.log('Calculating for parts:', selectedParts);
@@ -87,7 +123,6 @@ const SubmarineGathering = () => {
         }
       });
       
-      const savedCounts = getSavedGatheredCounts();
 
       let materialList = Object.entries(total).map(([name, amount]) => ({ name, amount }));
 
@@ -132,9 +167,12 @@ const SubmarineGathering = () => {
         return materialList.map(m => {
           const name = m.name;
           const required = m.required || m.amount;
-          // Priority: Current state > localStorage > 0
-          const currentItem = prev.find(item => item.name === name);
-          const gathered = currentItem ? currentItem.gathered : (savedCounts[name] || 0);
+          
+          // Priority: supabaseCounts (shared) > current state > 0
+          const gathered = supabaseCounts[name] !== undefined 
+            ? supabaseCounts[name] 
+            : (prev.find(item => item.name === name)?.gathered || 0);
+
           return {
             name,
             required,
@@ -147,16 +185,11 @@ const SubmarineGathering = () => {
     }
   };
 
-  // Sync to localStorage whenever materials change
+  // Keep local calculation in sync when supabaseCounts updates
   useEffect(() => {
-    if (materials.length > 0) {
-      const gMap = getSavedGatheredCounts();
-      materials.forEach(m => {
-        gMap[m.name] = m.gathered;
-      });
-      localStorage.setItem('submarine_gathered_counts', JSON.stringify(gMap));
-    }
-  }, [materials]);
+    calculateTotalMaterials();
+  }, [supabaseCounts]);
+
 
   const fetchSpreadsheetData = async () => {
     if (!spreadsheetUrl) return;
@@ -204,16 +237,26 @@ const SubmarineGathering = () => {
     }
   };
 
-  const updateGathered = (index, delta) => {
-    setMaterials(prev => {
-      return prev.map((m, i) => {
-        if (i === index) {
-          const newGathered = Math.max(0, Math.min(m.required, m.gathered + delta));
-          return { ...m, gathered: newGathered };
-        }
-        return m;
-      });
-    });
+  const updateGathered = async (index, delta) => {
+    const material = materials[index];
+    if (!material) return;
+
+    const newGathered = Math.max(0, Math.min(material.required, material.gathered + delta));
+    
+    // Update local state immediately for UI responsiveness
+    setMaterials(prev => prev.map((m, i) => i === index ? { ...m, gathered: newGathered } : m));
+
+    // Update Supabase (This will trigger the Realtime listener for others)
+    try {
+      const { error } = await supabase
+        .from('submarine_gathered')
+        .upsert({ name: material.name, count: newGathered }, { onConflict: 'name' });
+      
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating Supabase:', err);
+      // If Supabase fails, it still stays in local state for the current session
+    }
   };
 
   return (
@@ -275,11 +318,11 @@ const SubmarineGathering = () => {
                 value={spreadsheetUrl}
                 onChange={(e) => setSpreadsheetUrl(e.target.value)}
               />
-              <button onClick={() => { localStorage.setItem('submarine_gas_url', spreadsheetUrl); alert('URL 已儲存'); }} className="bg-blue-600 hover:bg-blue-500 px-8 py-4 rounded-2xl font-black transition-all shadow-[0_5px_15px_rgba(59,130,246,0.3)] active:scale-95">更新連線</button>
+              <button onClick={() => { alert('URL 已暫時更新，重新整理後將重置。'); }} className="bg-blue-600 hover:bg-blue-500 px-8 py-4 rounded-2xl font-black transition-all shadow-[0_5px_15px_rgba(59,130,246,0.3)] active:scale-95">更新連線</button>
               <button onClick={fetchSpreadsheetData} className="bg-slate-800 hover:bg-slate-700 px-8 py-4 rounded-2xl font-black border border-slate-700 transition-all active:scale-95">自雲端拉取</button>
             </div>
             <p className="text-[10px] text-slate-500 mt-4 font-bold uppercase tracking-wider italic opacity-60">
-              ※ 此功能會與 Google 試算表連動，若未設定則僅會儲存於本地瀏覽器 (LocalStorage)。
+              ※ 此功能會與 Google 試算表連動，目前此頁面優先使用 Supabase 進行即時協作同步。
             </p>
           </div>
         )}
