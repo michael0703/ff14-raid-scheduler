@@ -15,12 +15,12 @@ const directions = [
 
 const GAME_STATE = {
   IDLE: 'IDLE',
-  PILLARS: 'PILLARS', // 3s
-  SIDE_PREPARE: 'SIDE_PREPARE', // 3s wait
-  SIDE_DASHES: 'SIDE_DASHES', // 1s wait, then dash
-  SEQ_PREPARE: 'SEQ_PREPARE', // NEW: 3s wait after side dashes
-  SEQ_DASHES: 'SEQ_DASHES', // 4 dashes, 1s apart
-  BLUE_AFTER: 'BLUE_AFTER', // Blue ifrit explosion
+  PILLARS: 'PILLARS',
+  SIDE_PREPARE: 'SIDE_PREPARE',
+  SIDE_DASHES: 'SIDE_DASHES',
+  SEQ_PREPARE: 'SEQ_PREPARE',
+  SEQ_DASHES: 'SEQ_DASHES',
+  BLUE_AFTER: 'BLUE_AFTER',
   DONE: 'DONE',
   FAILED: 'FAILED',
 };
@@ -29,9 +29,15 @@ const IfritSim = () => {
   const [gameState, setGameState] = useState(GAME_STATE.IDLE);
   const [playerPos, setPlayerPos] = useState({ x: 50, y: 50 });
   const [pillars, setPillars] = useState([]);
-  const [dashes, setDashes] = useState([]); // [{ type, x, y, width, height, angle, opacity }]
+  const [dashes, setDashes] = useState([]); 
   const [blueIndex, setBlueIndex] = useState(-1);
   const [timer, setTimer] = useState(0);
+
+  // Tuning Parameters (Finalized Defaults)
+  const [seqDelay, setSeqDelay] = useState(3.0);
+  const [seqInterval, setSeqInterval] = useState(1.0);
+  const [blueDelay, setBlueDelay] = useState(0.4);
+  const [showTuning, setShowTuning] = useState(false);
   
   const requestRef = useRef();
   const keysPressed = useRef({});
@@ -40,21 +46,15 @@ const IfritSim = () => {
 
   const startSimulation = () => {
     // Generate Pillars (Trapezoid)
-    const startIndex = Math.floor(Math.random() * 8);
-    const p1 = startIndex;
-    const p2 = (startIndex + 1) % 8;
-    const p3 = (startIndex - 2 + 8) % 8;
-    const p4 = (startIndex + 3) % 8;
-    const newPillars = [p1, p2, p3, p4];
+    // i-2 (BL), i+3 (BR), i (TL), i+1 (TR)
+    const i = Math.floor(Math.random() * 8);
+    const bl = (i - 2 + 8) % 8;
+    const br = (i + 3) % 8;
+    const tl = i;
+    const tr = (i + 1) % 8;
     
-    // Determine sequential order: BL -> BR -> TL -> TR
-    // To simplify, we sort them by Y then X in arena coordinates
-    const sortedPillars = [...newPillars].sort((a, b) => {
-      const posA = getCoordinates(directions[a].angle);
-      const posB = getCoordinates(directions[b].angle);
-      if (Math.abs(posA.y - posB.y) > 5) return posB.y - posA.y; // Bottom has higher Y in SVG
-      return posA.x - posB.x; // Left has lower X
-    });
+    // Order: Long-side-Left -> Long-side-Right -> Short-side-Left -> Short-side-Right
+    const sortedPillars = [bl, br, tl, tr];
 
     setPillars(sortedPillars);
     setBlueIndex(Math.floor(Math.random() * 4));
@@ -80,14 +80,13 @@ const IfritSim = () => {
   };
 
   const handleMovement = (dt) => {
-    const speed = 0.05 * dt; // Adjust speed
+    const speed = 0.05 * dt; 
     let nextPos = { ...playerPos };
     if (keysPressed.current['w']) nextPos.y -= speed;
     if (keysPressed.current['s']) nextPos.y += speed;
     if (keysPressed.current['a']) nextPos.x -= speed;
     if (keysPressed.current['d']) nextPos.x += speed;
 
-    // Constrain to arena circle (Radius 48)
     const dist = Math.sqrt(Math.pow(nextPos.x - 50, 2) + Math.pow(nextPos.y - 50, 2));
     if (dist < 46) {
       setPlayerPos(nextPos);
@@ -97,12 +96,10 @@ const IfritSim = () => {
   const handleLogic = () => {
     const t = gameTimeRef.current;
     
-    // Phase 1: Pillars (0-3s)
     if (gameState === GAME_STATE.PILLARS && t > 3) {
       setGameState(GAME_STATE.SIDE_PREPARE);
     }
     
-    // Phase 2: Side Prepare (3-6s)
     if (gameState === GAME_STATE.SIDE_PREPARE) {
       setTimer(6 - t);
       if (t > 6) {
@@ -110,10 +107,8 @@ const IfritSim = () => {
       }
     }
 
-    // Phase 2: Side Dashes (6-8s)
     if (gameState === GAME_STATE.SIDE_DASHES) {
       if (t > 7 && dashes.length === 0) {
-        // N and E Dash
         setDashes([
           { id: 'N', x: 50, y: 50, w: 40, h: 100, angle: 0 },
           { id: 'E', x: 50, y: 50, w: 100, h: 40, angle: 0 },
@@ -125,25 +120,21 @@ const IfritSim = () => {
       }
     }
 
-    // Phase 3: SEQ Prepare (8-11s) - NEW
     if (gameState === GAME_STATE.SEQ_PREPARE) {
-      setTimer(11 - t);
-      if (t > 11) {
+      const seqStartTime = 8 + seqDelay;
+      setTimer(seqStartTime - t);
+      if (t > seqStartTime) {
         setGameState(GAME_STATE.SEQ_DASHES);
       }
     }
 
-    // Phase 3: Sequential Dashes (11-15s)
     if (gameState === GAME_STATE.SEQ_DASHES) {
-      const seqStart = 11;
-      const interval = 1.0;
-      const currentDashIndex = Math.floor((t - seqStart) / interval);
+      const seqStart = 8 + seqDelay;
+      const currentDashIndex = Math.floor((t - seqStart) / seqInterval);
       
       if (currentDashIndex >= 0 && currentDashIndex < 4) {
-        // Only show dash area for 0.5s of every 1s interval? or full 1s?
-        // Let's show it for 0.5s to give visual clarity of "next dash"
-        const timeInInterval = (t - seqStart) % interval;
-        if (timeInInterval < 0.5) {
+        const timeInInterval = (t - seqStart) % seqInterval;
+        if (timeInInterval < seqInterval / 2) {
           const pillarIndex = pillars[currentDashIndex];
           const angle = directions[pillarIndex].angle;
           setDashes([{ id: `seq-${currentDashIndex}`, x: 50, y: 50, w: 30, h: 100, angle }]);
@@ -156,27 +147,25 @@ const IfritSim = () => {
       }
     }
 
-    // Phase 4: Blue After (15s+)
     if (gameState === GAME_STATE.BLUE_AFTER) {
-      const blueTime = 16.5; // Gap after dashes
-      if (t > blueTime && dashes.length === 0) {
+      const seqEndTime = 8 + seqDelay + (4 * seqInterval);
+      const explosionTime = seqEndTime + blueDelay;
+      if (t > explosionTime && dashes.length === 0) {
         const bluePillar = pillars[blueIndex];
         const isCardinal = bluePillar % 2 === 0;
         if (isCardinal) {
-          // Cross Dash (Intercardinal)
           setDashes([
             { id: 'B1', x: 50, y: 50, w: 30, h: 150, angle: 45 },
             { id: 'B2', x: 50, y: 50, w: 30, h: 150, angle: 135 },
           ]);
         } else {
-          // Cross Dash (Cardinal)
           setDashes([
             { id: 'B1', x: 50, y: 50, w: 30, h: 150, angle: 0 },
             { id: 'B2', x: 50, y: 50, w: 150, h: 30, angle: 0 },
           ]);
         }
       }
-      if (t > 18) {
+      if (t > explosionTime + 1.5) {
         setGameState(GAME_STATE.DONE);
         setDashes([]);
       }
@@ -185,16 +174,12 @@ const IfritSim = () => {
 
   const checkCollisions = () => {
     if (dashes.length === 0) return;
-    
-    // Simple Box-Point or Rect-Point check for player
     for (const dash of dashes) {
-      // Rotate player relative to dash center for easier collision
       const rad = -dash.angle * (Math.PI / 180);
       const dx = playerPos.x - dash.x;
       const dy = playerPos.y - dash.y;
       const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
       const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
-      
       if (Math.abs(rx) < dash.w / 2 && Math.abs(ry) < dash.h / 2) {
         setGameState(GAME_STATE.FAILED);
       }
@@ -212,7 +197,7 @@ const IfritSim = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameState, playerPos]); // Re-bind movement with state context
+  }, [gameState, playerPos]);
 
   const getCoordinates = (angle, radius = 40) => {
     const radian = (angle - 90) * (Math.PI / 180);
@@ -223,7 +208,6 @@ const IfritSim = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center p-4">
-      {/* Header */}
       <div className="w-full max-w-4xl flex items-center justify-between mb-4">
         <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
           <ChevronLeft size={20} />
@@ -233,49 +217,32 @@ const IfritSim = () => {
         <div className="w-24"></div>
       </div>
 
-      {/* Arena */}
       <div className="relative w-full aspect-square max-w-[70vh] bg-slate-900 rounded-full border-4 border-slate-800 shadow-[0_0_100px_-20px_rgba(249,115,22,0.15)] overflow-hidden flex items-center justify-center select-none">
         <svg viewBox="0 0 100 100" className="w-full h-full p-0 pointer-events-none overflow-visible">
-          {/* Grid */}
           <circle cx="50" cy="50" r="48" fill="none" stroke="#1e293b" strokeWidth="0.5" />
           <line x1="50" y1="2" x2="50" y2="98" stroke="#1e293b" strokeWidth="0.1" />
           <line x1="2" y1="50" x2="98" y2="50" stroke="#1e293b" strokeWidth="0.1" />
           
-          {/* Dashes Area Visual */}
           {dashes.map((dash) => (
              <rect 
                key={dash.id}
-               x={dash.x - dash.w / 2} 
-               y={dash.y - dash.h / 2} 
-               width={dash.w} 
-               height={dash.h} 
-               fill="rgba(239, 68, 68, 0.4)" 
-               stroke="rgba(239, 68, 68, 0.8)"
-               strokeWidth="0.5"
+               x={dash.x - dash.w / 2} y={dash.y - dash.h / 2} width={dash.w} height={dash.h} 
+               fill="rgba(239, 68, 68, 0.4)" stroke="rgba(239, 68, 68, 0.8)" strokeWidth="0.5"
                transform={`rotate(${dash.angle}, ${dash.x}, ${dash.y})`}
                className="animate-pulse"
              />
           ))}
 
-          {/* Pillars */}
-          {(gameState === GAME_STATE.PILLARS || gameState === GAME_STATE.SIDE_PREPARE) && pillars.map((index, i) => {
+          {(gameState === GAME_STATE.PILLARS || gameState === GAME_STATE.SIDE_PREPARE || gameState === GAME_STATE.SEQ_PREPARE) && pillars.map((index, i) => {
             const { x, y } = getCoordinates(directions[index].angle, 40);
-            return (
-              <circle key={i} cx={x} cy={y} r="3" className="fill-orange-500 shadow-orange-500 animate-pulse" />
-            );
+            return <circle key={i} cx={x} cy={y} r="3" className="fill-orange-500 shadow-orange-500 animate-pulse" />;
           })}
 
-          {/* Sequential Ifrits (Wait phase) */}
           {(gameState === GAME_STATE.SEQ_DASHES || gameState === GAME_STATE.BLUE_AFTER) && pillars.map((index, i) => {
              const { x, y } = getCoordinates(directions[index].angle, 48);
-             return (
-               <g key={i}>
-                 <circle cx={x} cy={y} r="4" fill={i === blueIndex ? "#3b82f6" : "#f97316"} opacity="0.6" />
-               </g>
-             );
+             return <circle key={i} cx={x} cy={y} r="4" fill={i === blueIndex ? "#3b82f6" : "#f97316"} opacity="0.6" />;
           })}
 
-          {/* Side Ifrits (Prepare phase) */}
           {gameState === GAME_STATE.SIDE_DASHES && (
             <>
               <circle cx="50" cy="2" r="5" fill="#ef4444" opacity="0.8" />
@@ -283,11 +250,9 @@ const IfritSim = () => {
             </>
           )}
 
-          {/* Player */}
           <circle cx={playerPos.x} cy={playerPos.y} r="2" fill="white" stroke="#3b82f6" strokeWidth="0.5" className="shadow-lg" />
         </svg>
 
-        {/* Start / Failure Overlays */}
         {(gameState === GAME_STATE.IDLE || gameState === GAME_STATE.FAILED || gameState === GAME_STATE.DONE) && (
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50">
             {gameState === GAME_STATE.FAILED && (
@@ -315,14 +280,68 @@ const IfritSim = () => {
           </div>
         )}
 
-        {/* Timer UI */}
-        {(gameState === GAME_STATE.SIDE_PREPARE) && (
+        {(gameState === GAME_STATE.SIDE_PREPARE || gameState === GAME_STATE.SEQ_PREPARE) && (
           <div className="absolute top-1/4 flex flex-col items-center pointer-events-none">
             <span className="text-xs font-bold text-slate-500 tracking-widest uppercase">Prepare for Dash</span>
             <span className="text-6xl font-black text-white/20">{Math.ceil(timer)}</span>
           </div>
         )}
       </div>
+
+      {showTuning && (
+        <div className="mt-8 w-full max-w-xl bg-slate-900/80 backdrop-blur-md p-6 rounded-3xl border border-slate-800 shadow-2xl animate-in slide-in-from-bottom duration-500">
+          <div className="flex items-center justify-between mb-6">
+             <div className="flex items-center gap-2 text-orange-400">
+                <RefreshCw size={20} className="animate-spin-slow" />
+                <h3 className="font-black uppercase tracking-wider text-sm">時序調節面板</h3>
+             </div>
+             <button 
+               onClick={() => setShowTuning(false)}
+               className="text-[10px] bg-slate-800 px-3 py-1 rounded-full text-slate-500 hover:text-white transition-colors"
+             >
+               隱藏面板
+             </button>
+          </div>
+          
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-slate-400">1. 第一衝延遲 (柱子消失後)</span>
+                <span className="text-orange-500">{seqDelay.toFixed(1)}s</span>
+              </div>
+              <input 
+                type="range" min="0" max="10" step="0.5" 
+                value={seqDelay} onChange={(e) => setSeqDelay(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-slate-400">2. 衝鋒間隔時間</span>
+                <span className="text-orange-500">{seqInterval.toFixed(1)}s</span>
+              </div>
+              <input 
+                type="range" min="0.1" max="5" step="0.1" 
+                value={seqInterval} onChange={(e) => setSeqInterval(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-slate-400">3. 藍火神爆炸延遲</span>
+                <span className="text-orange-500">{blueDelay.toFixed(1)}s</span>
+              </div>
+              <input 
+                type="range" min="0" max="5" step="0.1" 
+                value={blueDelay} onChange={(e) => setBlueDelay(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Movement Controls UI Helper */}
       <div className="mt-8 grid grid-cols-3 gap-2">
@@ -332,6 +351,18 @@ const IfritSim = () => {
          <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${keysPressed.current['a'] ? 'bg-orange-600 border-orange-400 scale-95' : 'border-slate-800 text-slate-600'}`}>A</div>
          <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${keysPressed.current['s'] ? 'bg-orange-600 border-orange-400 scale-95' : 'border-slate-800 text-slate-600'}`}>S</div>
          <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${keysPressed.current['d'] ? 'bg-orange-600 border-orange-400 scale-95' : 'border-slate-800 text-slate-600'}`}>D</div>
+      </div>
+
+      {!showTuning && (
+        <button 
+          onClick={() => setShowTuning(true)}
+          className="mt-4 text-slate-600 hover:text-orange-500 text-[10px] font-bold uppercase tracking-widest transition-colors"
+        >
+          開啟調節面板
+        </button>
+      )}
+      <div className="mt-8 text-slate-700 text-[8px] font-medium uppercase tracking-[0.3em] opacity-50">
+         Ultimate Weapon Practive Tool v0.3
       </div>
     </div>
   );
