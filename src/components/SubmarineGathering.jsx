@@ -16,9 +16,10 @@ const SubmarineGathering = () => {
   const [loading, setLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [selectedItemName, setSelectedItemName] = useState(null);
-  const [isDeepView, setIsDeepView] = useState(false);
+  const [isDeepView, setIsDeepView] = useState(true);
   const [recipeData, setRecipeData] = useState(null);
   const [itemsMap, setItemsMap] = useState(null);
+  const [gatheringData, setGatheringData] = useState(null);
   const [dataLoading, setDataLoading] = useState(false);
 
   console.log('Full submarineData object:', submarineData);
@@ -30,11 +31,11 @@ const SubmarineGathering = () => {
     if (submarineData && Object.keys(submarineData).length > 0) {
       calculateTotalMaterials();
     }
-  }, [selectedParts, submarineData, isDeepView, recipeData, itemsMap]);
+  }, [selectedParts, submarineData, isDeepView, recipeData, itemsMap, gatheringData]);
 
-  // Load deep data if toggle is enabled
+  // Load deep data if toggle is enabled or by default
   useEffect(() => {
-    if (isDeepView && (!recipeData || !itemsMap)) {
+    if (isDeepView && (!recipeData || !itemsMap || !gatheringData)) {
       loadDeepData();
     }
   }, [isDeepView]);
@@ -42,14 +43,18 @@ const SubmarineGathering = () => {
   const loadDeepData = async () => {
     setDataLoading(true);
     try {
-      const [itemsRes, recipesRes] = await Promise.all([
+      const [itemsRes, recipesRes, gatheringRes] = await Promise.all([
         fetch(`${import.meta.env.BASE_URL}data/items.json`),
         fetch(`${import.meta.env.BASE_URL}data/recipes.json`),
+        fetch(`${import.meta.env.BASE_URL}data/gathering.json`),
       ]);
       const items = await itemsRes.json();
       const recipes = await recipesRes.json();
+      const gathering = await gatheringRes.json();
+      
       setItemsMap(items.items || items);
       setRecipeData(recipes.recipes || recipes);
+      setGatheringData(gathering.points || gathering);
     } catch (err) {
       console.error('Error loading deep data:', err);
       alert('無法載入配方資料');
@@ -88,6 +93,39 @@ const SubmarineGathering = () => {
 
       if (isDeepView && recipeData && itemsMap) {
         materialList = decomposeMaterials(materialList, recipeData, itemsMap);
+        
+        // Sorting by gathering location if gatheringData is available
+        if (gatheringData) {
+          const itemNamesToId = {};
+          Object.entries(itemsMap).forEach(([id, item]) => {
+            itemNamesToId[item.name] = id;
+          });
+
+          materialList.sort((a, b) => {
+            const idA = itemNamesToId[a.name];
+            const idB = itemNamesToId[b.name];
+            const nodesA = gatheringData[idA] || [];
+            const nodesB = gatheringData[idB] || [];
+            
+            const hasNodesA = nodesA.length > 0;
+            const hasNodesB = nodesB.length > 0;
+
+            if (hasNodesA && !hasNodesB) return -1;
+            if (!hasNodesA && hasNodesB) return 1;
+            
+            if (hasNodesA && hasNodesB) {
+              const nodeA = nodesA[0];
+              const nodeB = nodesB[0];
+              
+              if (nodeA.placeName !== nodeB.placeName) {
+                return nodeA.placeName.localeCompare(nodeB.placeName);
+              }
+              return nodeA.level - nodeB.level;
+            }
+
+            return a.name.localeCompare(b.name);
+          });
+        }
       }
 
       setMaterials(prev => {
