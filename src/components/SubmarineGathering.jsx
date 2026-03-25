@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import submarineData from '../data/submarine_materials.json';
 import ItemDetailView from './ItemDetailView';
+import { decomposeMaterials } from '../utils/submarineMaterialDecomposer';
 
 const SubmarineGathering = () => {
   console.log('SubmarineGathering Component Rendered');
@@ -15,6 +16,10 @@ const SubmarineGathering = () => {
   const [loading, setLoading] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [selectedItemName, setSelectedItemName] = useState(null);
+  const [isDeepView, setIsDeepView] = useState(false);
+  const [recipeData, setRecipeData] = useState(null);
+  const [itemsMap, setItemsMap] = useState(null);
+  const [dataLoading, setDataLoading] = useState(false);
 
   console.log('Full submarineData object:', submarineData);
   const classes = submarineData ? Object.keys(submarineData) : [];
@@ -25,7 +30,34 @@ const SubmarineGathering = () => {
     if (submarineData && Object.keys(submarineData).length > 0) {
       calculateTotalMaterials();
     }
-  }, [selectedParts, submarineData]);
+  }, [selectedParts, submarineData, isDeepView, recipeData, itemsMap]);
+
+  // Load deep data if toggle is enabled
+  useEffect(() => {
+    if (isDeepView && (!recipeData || !itemsMap)) {
+      loadDeepData();
+    }
+  }, [isDeepView]);
+
+  const loadDeepData = async () => {
+    setDataLoading(true);
+    try {
+      const [itemsRes, recipesRes] = await Promise.all([
+        fetch(`${import.meta.env.BASE_URL}data/items.json`),
+        fetch(`${import.meta.env.BASE_URL}data/recipes.json`),
+      ]);
+      const items = await itemsRes.json();
+      const recipes = await recipesRes.json();
+      setItemsMap(items.items || items);
+      setRecipeData(recipes.recipes || recipes);
+    } catch (err) {
+      console.error('Error loading deep data:', err);
+      alert('無法載入配方資料');
+      setIsDeepView(false);
+    } finally {
+      setDataLoading(false);
+    }
+  };
 
   // Load saved gathered counts from localStorage on first run
   const getSavedGatheredCounts = () => {
@@ -52,8 +84,16 @@ const SubmarineGathering = () => {
       
       const savedCounts = getSavedGatheredCounts();
 
+      let materialList = Object.entries(total).map(([name, amount]) => ({ name, amount }));
+
+      if (isDeepView && recipeData && itemsMap) {
+        materialList = decomposeMaterials(materialList, recipeData, itemsMap);
+      }
+
       setMaterials(prev => {
-        return Object.entries(total).map(([name, required]) => {
+        return materialList.map(m => {
+          const name = m.name;
+          const required = m.required || m.amount;
           // Priority: Current state > localStorage > 0
           const currentItem = prev.find(item => item.name === name);
           const gathered = currentItem ? currentItem.gathered : (savedCounts[name] || 0);
@@ -160,6 +200,18 @@ const SubmarineGathering = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               {showConfig ? '隱藏設定' : '同步設定'}
+            </button>
+
+            <button 
+              onClick={() => setIsDeepView(!isDeepView)}
+              disabled={dataLoading}
+              className={`p-3 px-6 rounded-2xl border transition-all duration-300 flex items-center gap-3 font-black text-sm ${isDeepView ? 'bg-emerald-600 border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white backdrop-blur-md'}`}
+            >
+              <div className={`w-2 h-2 rounded-full ${isDeepView ? 'bg-white animate-pulse' : 'bg-slate-600'}`}></div>
+              {dataLoading ? '載入中...' : isDeepView ? '基礎材料 (已開啟)' : '基礎材料 (已關閉)'}
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
             </button>
           </div>
         </div>
