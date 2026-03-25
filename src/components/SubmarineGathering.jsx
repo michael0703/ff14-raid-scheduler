@@ -166,12 +166,16 @@ const SubmarineGathering = () => {
       const data = await res.json();
       if (Array.isArray(data)) {
         setMaterials(prev => {
-          const newMaterials = [...prev];
-          data.forEach(row => {
-            const m = newMaterials.find(item => item.name === row['素材名稱']);
-            if (m) m.gathered = parseInt(row['已蒐集數量']) || 0;
+          return prev.map(m => {
+            const row = data.find(r => r['素材名稱'] === m.name);
+            if (row) {
+              return {
+                ...m,
+                gathered: parseInt(row['已蒐集數量']) || 0
+              };
+            }
+            return m;
           });
-          return newMaterials;
         });
       }
     } catch (e) {
@@ -202,10 +206,13 @@ const SubmarineGathering = () => {
 
   const updateGathered = (index, delta) => {
     setMaterials(prev => {
-      const newMaterials = [...prev];
-      const item = newMaterials[index];
-      item.gathered = Math.max(0, Math.min(item.required, item.gathered + delta));
-      return newMaterials;
+      return prev.map((m, i) => {
+        if (i === index) {
+          const newGathered = Math.max(0, Math.min(m.required, m.gathered + delta));
+          return { ...m, gathered: newGathered };
+        }
+        return m;
+      });
     });
   };
 
