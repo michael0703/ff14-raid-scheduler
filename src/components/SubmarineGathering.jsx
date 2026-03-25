@@ -24,6 +24,7 @@ const SubmarineGathering = () => {
   const [gatheringData, setGatheringData] = useState(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [supabaseCounts, setSupabaseCounts] = useState({});
+  const [hideCompleted, setHideCompleted] = useState(false);
 
   console.log('Full submarineData object:', submarineData);
   const classes = submarineData ? Object.keys(submarineData) : [];
@@ -238,17 +239,17 @@ const SubmarineGathering = () => {
     }
   };
 
-  const updateGathered = async (index, delta) => {
-    const material = materials[index];
+  const updateGathered = async (name, delta) => {
+    const material = materials.find(m => m.name === name);
     if (!material) return;
 
     const newGathered = Math.max(0, Math.min(material.required, material.gathered + delta));
-    handleUpdate(material.name, newGathered, index);
+    handleUpdate(name, newGathered);
   };
 
-  const handleUpdate = async (name, value, index) => {
+  const handleUpdate = async (name, value) => {
     // Update local state immediately for UI responsiveness
-    setMaterials(prev => prev.map((m, i) => i === index || m.name === name ? { ...m, gathered: value } : m));
+    setMaterials(prev => prev.map((m) => m.name === name ? { ...m, gathered: value } : m));
 
     // Update Supabase
     try {
@@ -330,6 +331,23 @@ const SubmarineGathering = () => {
             >
               <Trash2 className="h-4 w-4" />
               一鍵清零
+            </button>
+
+            <button 
+              onClick={() => setHideCompleted(!hideCompleted)}
+              className={`p-3 px-6 rounded-2xl border transition-all duration-300 flex items-center gap-2 font-black text-sm backdrop-blur-md ${hideCompleted ? 'bg-orange-600 border-orange-400 text-white shadow-[0_0_15px_rgba(234,88,12,0.5)]' : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white'}`}
+            >
+              {hideCompleted ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 1.254 0 2.413.245 3.473.691M15.011 7.228A4 4 0 0115 12h-4m9.37 7.37L21 21m-2-2l-2-2m-1.37-1.37A10.012 10.012 0 0112 17c-1.254 0-2.413-.245-3.472-.691" />
+                </svg>
+              )}
+              {hideCompleted ? '顯示已完成' : '隱藏已完成'}
             </button>
 
             <button 
@@ -432,39 +450,41 @@ const SubmarineGathering = () => {
                         </td>
                       </tr>
                     ) : (
-                      materials.map((m, i) => {
-                        const percent = Math.round((m.gathered / m.required) * 100);
-                        const isSelected = selectedItemName === m.name;
-                        return (
-                          <tr key={m.name} className={`group transition-all duration-300 ${isSelected ? 'bg-blue-600/10' : 'hover:bg-white/5'}`}>
-                            <td className="px-8 py-6">
-                              <button 
-                                onClick={() => {
-                                  setSelectedItemName(m.name);
-                                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                className={`font-black text-lg transition-all text-left ${isSelected ? 'text-blue-400' : 'text-slate-200 group-hover:text-blue-300'}`}
-                              >
-                                {m.name}
-                              </button>
-                              {isSelected && <div className="text-[10px] text-blue-500 mt-1 font-black uppercase tracking-tighter">檢視中</div>}
-                            </td>
-                            <td className="px-8 py-6 text-center">
-                              <span className="bg-slate-900/80 px-4 py-2 rounded-xl font-mono font-black text-blue-400 border border-white/5 shadow-inner">{m.required}</span>
-                            </td>
-                             <td className="px-8 py-6">
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => updateGathered(i, -1)} className="w-10 h-10 bg-slate-800/80 hover:bg-red-500/20 rounded-xl text-slate-400 hover:text-red-400 border border-white/5 transition-all font-black text-lg">-</button>
-                                <input 
-                                  type="number" 
-                                  value={m.gathered}
-                                  onChange={(e) => handleUpdate(m.name, parseInt(e.target.value) || 0, i)}
-                                  className="w-20 bg-slate-950/50 border border-white/10 rounded-xl text-center font-black text-xl text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                />
-                                <button onClick={() => updateGathered(i, 1)} className="w-10 h-10 bg-slate-800/80 hover:bg-green-500/20 rounded-xl text-slate-400 hover:text-green-400 border border-white/5 transition-all font-black text-lg">+</button>
-                                <button onClick={() => updateGathered(i, 10)} className="px-3 h-10 bg-slate-800/80 hover:bg-blue-500/20 rounded-xl text-slate-400 hover:text-blue-400 border border-white/5 text-[10px] font-black transition-all">+10</button>
-                              </div>
-                            </td>
+                      materials
+                        .filter(m => !hideCompleted || m.gathered < m.required)
+                        .map((m) => {
+                          const percent = Math.round((m.gathered / m.required) * 100);
+                          const isSelected = selectedItemName === m.name;
+                          return (
+                            <tr key={m.name} className={`group transition-all duration-300 ${isSelected ? 'bg-blue-600/10' : 'hover:bg-white/5'}`}>
+                              <td className="px-8 py-6">
+                                <button 
+                                  onClick={() => {
+                                    setSelectedItemName(m.name);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }}
+                                  className={`font-black text-lg transition-all text-left ${isSelected ? 'text-blue-400' : 'text-slate-200 group-hover:text-blue-300'}`}
+                                >
+                                  {m.name}
+                                </button>
+                                {isSelected && <div className="text-[10px] text-blue-500 mt-1 font-black uppercase tracking-tighter">檢視中</div>}
+                              </td>
+                              <td className="px-8 py-6 text-center">
+                                <span className="bg-slate-900/80 px-4 py-2 rounded-xl font-mono font-black text-blue-400 border border-white/5 shadow-inner">{m.required}</span>
+                              </td>
+                               <td className="px-8 py-6">
+                                <div className="flex items-center gap-2">
+                                  <button onClick={() => updateGathered(m.name, -1)} className="w-10 h-10 bg-slate-800/80 hover:bg-red-500/20 rounded-xl text-slate-400 hover:text-red-400 border border-white/5 transition-all font-black text-lg">-</button>
+                                  <input 
+                                    type="number" 
+                                    value={m.gathered}
+                                    onChange={(e) => handleUpdate(m.name, parseInt(e.target.value) || 0)}
+                                    className="w-20 bg-slate-950/50 border border-white/10 rounded-xl text-center font-black text-xl text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  />
+                                  <button onClick={() => updateGathered(m.name, 1)} className="w-10 h-10 bg-slate-800/80 hover:bg-green-500/20 rounded-xl text-slate-400 hover:text-green-400 border border-white/5 transition-all font-black text-lg">+</button>
+                                  <button onClick={() => updateGathered(m.name, 10)} className="px-3 h-10 bg-slate-800/80 hover:bg-blue-500/20 rounded-xl text-slate-400 hover:text-blue-400 border border-white/5 text-[10px] font-black transition-all">+10</button>
+                                </div>
+                              </td>
                             <td className="px-8 py-6">
                               <div className="w-full">
                                 <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter mb-2.5 text-slate-500">
