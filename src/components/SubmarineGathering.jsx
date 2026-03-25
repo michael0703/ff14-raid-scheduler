@@ -439,7 +439,10 @@ const SubmarineGathering = () => {
                           <tr key={m.name} className={`group transition-all duration-300 ${isSelected ? 'bg-blue-600/10' : 'hover:bg-white/5'}`}>
                             <td className="px-8 py-6">
                               <button 
-                                onClick={() => setSelectedItemName(m.name)}
+                                onClick={() => {
+                                  setSelectedItemName(m.name);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
                                 className={`font-black text-lg transition-all text-left ${isSelected ? 'text-blue-400' : 'text-slate-200 group-hover:text-blue-300'}`}
                               >
                                 {m.name}
