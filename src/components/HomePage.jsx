@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Search, Ship } from 'lucide-react';
+import { Shield, Search, Ship, Flame } from 'lucide-react';
 
 const HomePage = () => {
   return (
@@ -22,6 +22,7 @@ const HomePage = () => {
               <Link to="/" className="text-blue-600 font-black text-sm">首頁</Link>
               <Link to="/search-item" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">查找物品</Link>
               <Link to="/submarine" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">潛水艇採集</Link>
+              <Link to="/ifrit-sim" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">火神衝練習</Link>
             </nav>
           </div>
         </div>
@@ -45,6 +46,13 @@ const HomePage = () => {
               >
                 <Ship size={24} />
                 潛水艇採集
+              </Link>
+              <Link
+                to="/ifrit-sim"
+                className="inline-flex items-center gap-2 bg-orange-600 text-white px-10 py-5 rounded-xl font-black shadow-lg hover:bg-orange-700 transition-all active:scale-95 text-lg"
+              >
+                <Flame size={24} />
+                火神衝練習
               </Link>
             </div>
           </div>
@@ -73,6 +81,7 @@ const HomePage = () => {
               <ul className="space-y-2 text-sm text-slate-400">
                 <li><Link to="/search-item" className="hover:text-white transition-colors">查找物品</Link></li>
                 <li><Link to="/submarine" className="hover:text-white transition-colors">潛水艇採集</Link></li>
+                <li><Link to="/ifrit-sim" className="hover:text-white transition-colors">火神衝練習</Link></li>
               </ul>
             </div>
 
