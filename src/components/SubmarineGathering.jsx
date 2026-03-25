@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Trash2 } from 'lucide-react';
 import submarineData from '../data/submarine_materials.json';
 import ItemDetailView from './ItemDetailView';
 import { decomposeMaterials } from '../utils/submarineMaterialDecomposer';
@@ -242,20 +243,52 @@ const SubmarineGathering = () => {
     if (!material) return;
 
     const newGathered = Math.max(0, Math.min(material.required, material.gathered + delta));
-    
-    // Update local state immediately for UI responsiveness
-    setMaterials(prev => prev.map((m, i) => i === index ? { ...m, gathered: newGathered } : m));
+    handleUpdate(material.name, newGathered, index);
+  };
 
-    // Update Supabase (This will trigger the Realtime listener for others)
+  const handleUpdate = async (name, value, index) => {
+    // Update local state immediately for UI responsiveness
+    setMaterials(prev => prev.map((m, i) => i === index || m.name === name ? { ...m, gathered: value } : m));
+
+    // Update Supabase
     try {
       const { error } = await supabase
         .from('submarine_gathered')
-        .upsert({ name: material.name, count: newGathered }, { onConflict: 'name' });
+        .upsert({ name, count: value }, { onConflict: 'name' });
       
       if (error) throw error;
     } catch (err) {
       console.error('Error updating Supabase:', err);
-      // If Supabase fails, it still stays in local state for the current session
+    }
+  };
+
+  const resetAllCounts = async () => {
+    if (!window.confirm('確定要將所有材料收集數量重置為 0 嗎？')) return;
+    
+    setLoading(true);
+    try {
+      // For safety, we set all counts in our current list to 0 in Supabase
+      const updates = materials.map(m => ({ name: m.name, count: 0 }));
+      
+      const { error } = await supabase
+        .from('submarine_gathered')
+        .upsert(updates, { onConflict: 'name' });
+      
+      if (error) throw error;
+
+      // Update local cache
+      setSupabaseCounts(prev => {
+        const next = { ...prev };
+        materials.forEach(m => { next[m.name] = 0; });
+        return next;
+      });
+      
+      alert('所有進度已清零');
+    } catch (err) {
+      console.error('Reset error:', err);
+      alert('清零失敗: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -288,6 +321,15 @@ const SubmarineGathering = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               {showConfig ? '隱藏設定' : '同步設定'}
+            </button>
+
+            <button 
+              onClick={resetAllCounts}
+              disabled={loading}
+              className="p-3 px-6 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all duration-300 flex items-center gap-2 font-black text-sm backdrop-blur-md"
+            >
+              <Trash2 className="h-4 w-4" />
+              一鍵清零
             </button>
 
             <button 
@@ -407,10 +449,15 @@ const SubmarineGathering = () => {
                             <td className="px-8 py-6 text-center">
                               <span className="bg-slate-900/80 px-4 py-2 rounded-xl font-mono font-black text-blue-400 border border-white/5 shadow-inner">{m.required}</span>
                             </td>
-                            <td className="px-8 py-6">
+                             <td className="px-8 py-6">
                               <div className="flex items-center gap-2">
                                 <button onClick={() => updateGathered(i, -1)} className="w-10 h-10 bg-slate-800/80 hover:bg-red-500/20 rounded-xl text-slate-400 hover:text-red-400 border border-white/5 transition-all font-black text-lg">-</button>
-                                <div className="w-14 text-center font-black text-xl text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">{m.gathered}</div>
+                                <input 
+                                  type="number" 
+                                  value={m.gathered}
+                                  onChange={(e) => handleUpdate(m.name, parseInt(e.target.value) || 0, i)}
+                                  className="w-20 bg-slate-950/50 border border-white/10 rounded-xl text-center font-black text-xl text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
                                 <button onClick={() => updateGathered(i, 1)} className="w-10 h-10 bg-slate-800/80 hover:bg-green-500/20 rounded-xl text-slate-400 hover:text-green-400 border border-white/5 transition-all font-black text-lg">+</button>
                                 <button onClick={() => updateGathered(i, 10)} className="px-3 h-10 bg-slate-800/80 hover:bg-blue-500/20 rounded-xl text-slate-400 hover:text-blue-400 border border-white/5 text-[10px] font-black transition-all">+10</button>
                               </div>
