@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, Play, RefreshCw, Flame } from 'lucide-react';
+import { ChevronLeft, Play, RefreshCw, Flame, Heart, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 const directions = [
   { name: 'N', angle: 0 },
@@ -13,31 +13,206 @@ const directions = [
   { name: 'NW', angle: 315 },
 ];
 
+const GAME_STATE = {
+  IDLE: 'IDLE',
+  PILLARS: 'PILLARS', // 3s
+  SIDE_PREPARE: 'SIDE_PREPARE', // 3s wait
+  SIDE_DASHES: 'SIDE_DASHES', // 1s wait, then dash
+  SEQ_PREPARE: 'SEQ_PREPARE', // NEW: 3s wait after side dashes
+  SEQ_DASHES: 'SEQ_DASHES', // 4 dashes, 1s apart
+  BLUE_AFTER: 'BLUE_AFTER', // Blue ifrit explosion
+  DONE: 'DONE',
+  FAILED: 'FAILED',
+};
+
 const IfritSim = () => {
+  const [gameState, setGameState] = useState(GAME_STATE.IDLE);
+  const [playerPos, setPlayerPos] = useState({ x: 50, y: 50 });
   const [pillars, setPillars] = useState([]);
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [dashes, setDashes] = useState([]); // [{ type, x, y, width, height, angle, opacity }]
+  const [blueIndex, setBlueIndex] = useState(-1);
+  const [timer, setTimer] = useState(0);
+  
+  const requestRef = useRef();
+  const keysPressed = useRef({});
+  const lastTimeRef = useRef();
+  const gameTimeRef = useRef(0);
 
   const startSimulation = () => {
-    setIsSimulating(true);
-    // 隨機選擇一個起始方位 (0-7)
+    // Generate Pillars (Trapezoid)
     const startIndex = Math.floor(Math.random() * 8);
+    const p1 = startIndex;
+    const p2 = (startIndex + 1) % 8;
+    const p3 = (startIndex - 2 + 8) % 8;
+    const p4 = (startIndex + 3) % 8;
+    const newPillars = [p1, p2, p3, p4];
     
-    // 根據規則生成梯形點位
-    // N1, N2 是頂邊 (45度)
-    // N1-N3 是左邊 (90度)
-    // N2-N4 是右邊 (90度)
-    const n1 = startIndex;
-    const n2 = (startIndex + 1) % 8;
-    const n3 = (startIndex - 2 + 8) % 8;
-    const n4 = (startIndex + 3) % 8;
-    
-    setPillars([n1, n2, n3, n4]);
+    // Determine sequential order: BL -> BR -> TL -> TR
+    // To simplify, we sort them by Y then X in arena coordinates
+    const sortedPillars = [...newPillars].sort((a, b) => {
+      const posA = getCoordinates(directions[a].angle);
+      const posB = getCoordinates(directions[b].angle);
+      if (Math.abs(posA.y - posB.y) > 5) return posB.y - posA.y; // Bottom has higher Y in SVG
+      return posA.x - posB.x; // Left has lower X
+    });
+
+    setPillars(sortedPillars);
+    setBlueIndex(Math.floor(Math.random() * 4));
+    setPlayerPos({ x: 50, y: 50 });
+    setGameState(GAME_STATE.PILLARS);
+    setDashes([]);
+    gameTimeRef.current = 0;
   };
 
-  const resetSimulation = () => {
-    setPillars([]);
-    setIsSimulating(false);
+  const update = (time) => {
+    if (!lastTimeRef.current) lastTimeRef.current = time;
+    const deltaTime = time - lastTimeRef.current;
+    lastTimeRef.current = time;
+
+    if (gameState !== GAME_STATE.IDLE && gameState !== GAME_STATE.FAILED && gameState !== GAME_STATE.DONE) {
+      gameTimeRef.current += deltaTime / 1000;
+      handleMovement(deltaTime);
+      handleLogic();
+      checkCollisions();
+    }
+
+    requestRef.current = requestAnimationFrame(update);
   };
+
+  const handleMovement = (dt) => {
+    const speed = 0.05 * dt; // Adjust speed
+    let nextPos = { ...playerPos };
+    if (keysPressed.current['w']) nextPos.y -= speed;
+    if (keysPressed.current['s']) nextPos.y += speed;
+    if (keysPressed.current['a']) nextPos.x -= speed;
+    if (keysPressed.current['d']) nextPos.x += speed;
+
+    // Constrain to arena circle (Radius 48)
+    const dist = Math.sqrt(Math.pow(nextPos.x - 50, 2) + Math.pow(nextPos.y - 50, 2));
+    if (dist < 46) {
+      setPlayerPos(nextPos);
+    }
+  };
+
+  const handleLogic = () => {
+    const t = gameTimeRef.current;
+    
+    // Phase 1: Pillars (0-3s)
+    if (gameState === GAME_STATE.PILLARS && t > 3) {
+      setGameState(GAME_STATE.SIDE_PREPARE);
+    }
+    
+    // Phase 2: Side Prepare (3-6s)
+    if (gameState === GAME_STATE.SIDE_PREPARE) {
+      setTimer(6 - t);
+      if (t > 6) {
+        setGameState(GAME_STATE.SIDE_DASHES);
+      }
+    }
+
+    // Phase 2: Side Dashes (6-8s)
+    if (gameState === GAME_STATE.SIDE_DASHES) {
+      if (t > 7 && dashes.length === 0) {
+        // N and E Dash
+        setDashes([
+          { id: 'N', x: 50, y: 50, w: 40, h: 100, angle: 0 },
+          { id: 'E', x: 50, y: 50, w: 100, h: 40, angle: 0 },
+        ]);
+      }
+      if (t > 8) {
+        setGameState(GAME_STATE.SEQ_PREPARE);
+        setDashes([]);
+      }
+    }
+
+    // Phase 3: SEQ Prepare (8-11s) - NEW
+    if (gameState === GAME_STATE.SEQ_PREPARE) {
+      setTimer(11 - t);
+      if (t > 11) {
+        setGameState(GAME_STATE.SEQ_DASHES);
+      }
+    }
+
+    // Phase 3: Sequential Dashes (11-15s)
+    if (gameState === GAME_STATE.SEQ_DASHES) {
+      const seqStart = 11;
+      const interval = 1.0;
+      const currentDashIndex = Math.floor((t - seqStart) / interval);
+      
+      if (currentDashIndex >= 0 && currentDashIndex < 4) {
+        // Only show dash area for 0.5s of every 1s interval? or full 1s?
+        // Let's show it for 0.5s to give visual clarity of "next dash"
+        const timeInInterval = (t - seqStart) % interval;
+        if (timeInInterval < 0.5) {
+          const pillarIndex = pillars[currentDashIndex];
+          const angle = directions[pillarIndex].angle;
+          setDashes([{ id: `seq-${currentDashIndex}`, x: 50, y: 50, w: 30, h: 100, angle }]);
+        } else {
+          setDashes([]);
+        }
+      } else if (currentDashIndex >= 4) {
+        setGameState(GAME_STATE.BLUE_AFTER);
+        setDashes([]);
+      }
+    }
+
+    // Phase 4: Blue After (15s+)
+    if (gameState === GAME_STATE.BLUE_AFTER) {
+      const blueTime = 16.5; // Gap after dashes
+      if (t > blueTime && dashes.length === 0) {
+        const bluePillar = pillars[blueIndex];
+        const isCardinal = bluePillar % 2 === 0;
+        if (isCardinal) {
+          // Cross Dash (Intercardinal)
+          setDashes([
+            { id: 'B1', x: 50, y: 50, w: 30, h: 150, angle: 45 },
+            { id: 'B2', x: 50, y: 50, w: 30, h: 150, angle: 135 },
+          ]);
+        } else {
+          // Cross Dash (Cardinal)
+          setDashes([
+            { id: 'B1', x: 50, y: 50, w: 30, h: 150, angle: 0 },
+            { id: 'B2', x: 50, y: 50, w: 150, h: 30, angle: 0 },
+          ]);
+        }
+      }
+      if (t > 18) {
+        setGameState(GAME_STATE.DONE);
+        setDashes([]);
+      }
+    }
+  };
+
+  const checkCollisions = () => {
+    if (dashes.length === 0) return;
+    
+    // Simple Box-Point or Rect-Point check for player
+    for (const dash of dashes) {
+      // Rotate player relative to dash center for easier collision
+      const rad = -dash.angle * (Math.PI / 180);
+      const dx = playerPos.x - dash.x;
+      const dy = playerPos.y - dash.y;
+      const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+      const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+      
+      if (Math.abs(rx) < dash.w / 2 && Math.abs(ry) < dash.h / 2) {
+        setGameState(GAME_STATE.FAILED);
+      }
+    }
+  };
+
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(update);
+    const handleKeyDown = (e) => { keysPressed.current[e.key.toLowerCase()] = true; };
+    const handleKeyUp = (e) => { keysPressed.current[e.key.toLowerCase()] = false; };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      cancelAnimationFrame(requestRef.current);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [gameState, playerPos]); // Re-bind movement with state context
 
   const getCoordinates = (angle, radius = 40) => {
     const radian = (angle - 90) * (Math.PI / 180);
@@ -47,141 +222,116 @@ const IfritSim = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center p-4 selection:bg-orange-500/30">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center p-4">
       {/* Header */}
-      <div className="w-full max-w-4xl flex items-center justify-between mb-8">
-        <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group">
-          <div className="bg-slate-800 p-2 rounded-lg group-hover:bg-slate-700 transition-colors">
-            <ChevronLeft size={20} />
-          </div>
+      <div className="w-full max-w-4xl flex items-center justify-between mb-4">
+        <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+          <ChevronLeft size={20} />
           <span className="font-bold">返回首頁</span>
         </Link>
-        <div className="flex flex-col items-center">
-          <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-orange-400 to-red-600 bg-clip-text text-transparent">模擬火神衝練習</h1>
-          <div className="h-1 w-24 bg-gradient-to-r from-orange-500 to-red-600 rounded-full mt-1 blur-[1px]"></div>
-        </div>
-        <div className="w-24 md:flex hidden"></div>
+        <h1 className="text-2xl font-black tracking-tight text-orange-500 uppercase italic">Ifrit Dash Simulation</h1>
+        <div className="w-24"></div>
       </div>
 
-      {/* Main Simulation Area */}
-      <div className="relative w-full aspect-square max-w-[75vh] bg-slate-900 rounded-full border-4 border-slate-800 shadow-[0_0_50px_-12px_rgba(249,115,22,0.3)] overflow-hidden flex items-center justify-center">
-        {/* Arena Circle SVG */}
-        <svg viewBox="0 0 100 100" className="w-full h-full p-4 pointer-events-none z-0">
-          {/* Background Grid Lines */}
+      {/* Arena */}
+      <div className="relative w-full aspect-square max-w-[70vh] bg-slate-900 rounded-full border-4 border-slate-800 shadow-[0_0_100px_-20px_rgba(249,115,22,0.15)] overflow-hidden flex items-center justify-center select-none">
+        <svg viewBox="0 0 100 100" className="w-full h-full p-0 pointer-events-none overflow-visible">
+          {/* Grid */}
           <circle cx="50" cy="50" r="48" fill="none" stroke="#1e293b" strokeWidth="0.5" />
-          <line x1="50" y1="2" x2="50" y2="98" stroke="#1e293b" strokeWidth="0.2" />
-          <line x1="2" y1="50" x2="98" y2="50" stroke="#1e293b" strokeWidth="0.2" />
+          <line x1="50" y1="2" x2="50" y2="98" stroke="#1e293b" strokeWidth="0.1" />
+          <line x1="2" y1="50" x2="98" y2="50" stroke="#1e293b" strokeWidth="0.1" />
           
-          {/* Direction Name Labels */}
-          {directions.map((dir) => {
-            const { x, y } = getCoordinates(dir.angle, 45);
-            return (
-              <text 
-                key={dir.name}
-                x={x} 
-                y={y} 
-                textAnchor="middle" 
-                dominantBaseline="middle" 
-                className="text-[4px] font-black fill-slate-600 tracking-tighter"
-              >
-                {dir.name}
-              </text>
-            );
-          })}
-        </svg>
+          {/* Dashes Area Visual */}
+          {dashes.map((dash) => (
+             <rect 
+               key={dash.id}
+               x={dash.x - dash.w / 2} 
+               y={dash.y - dash.h / 2} 
+               width={dash.w} 
+               height={dash.h} 
+               fill="rgba(239, 68, 68, 0.4)" 
+               stroke="rgba(239, 68, 68, 0.8)"
+               strokeWidth="0.5"
+               transform={`rotate(${dash.angle}, ${dash.x}, ${dash.y})`}
+               className="animate-pulse"
+             />
+          ))}
 
-        {/* Pillars (Ifrits) Icons */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          {pillars.map((index, i) => {
+          {/* Pillars */}
+          {(gameState === GAME_STATE.PILLARS || gameState === GAME_STATE.SIDE_PREPARE) && pillars.map((index, i) => {
             const { x, y } = getCoordinates(directions[index].angle, 40);
             return (
-              <div 
-                key={i}
-                className="absolute flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-1/2 animate-in zoom-in duration-300"
-                style={{ left: `${x}%`, top: `${y}%` }}
-              >
-                <div className="relative flex items-center justify-center">
-                  {/* Glow Effect */}
-                  <div className="absolute inset-0 bg-orange-600 rounded-full blur-md opacity-50 animate-pulse"></div>
-                  {/* Pillar Icon */}
-                  <div className="relative bg-orange-600 p-2.5 rounded-full shadow-[0_0_15px_rgba(234,88,12,0.6)] text-white border border-orange-400">
-                    <Flame size={24} fill="currentColor" />
-                  </div>
-                </div>
-                {/* Pos Label */}
-                <div className="mt-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-black text-orange-400 border border-orange-500/30 uppercase">
-                  {directions[index].name}
-                </div>
-              </div>
+              <circle key={i} cx={x} cy={y} r="3" className="fill-orange-500 shadow-orange-500 animate-pulse" />
             );
           })}
-        </div>
 
-        {/* Center Image */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
-          <img 
-            src="https://xivapi.com/i/061000/061411_hr1.png" 
-            alt="Ifrit" 
-            className="w-1/2 h-1/2 object-contain grayscale"
-          />
-        </div>
-        
-        {/* Start Overlay */}
-        {!isSimulating && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center z-20 animate-in fade-in duration-500">
-            <div className="bg-orange-600/10 p-8 rounded-full mb-8 animate-pulse border border-orange-500/20">
-               <Flame size={64} className="text-orange-500" fill="currentColor opacity-20" />
-            </div>
+          {/* Sequential Ifrits (Wait phase) */}
+          {(gameState === GAME_STATE.SEQ_DASHES || gameState === GAME_STATE.BLUE_AFTER) && pillars.map((index, i) => {
+             const { x, y } = getCoordinates(directions[index].angle, 48);
+             return (
+               <g key={i}>
+                 <circle cx={x} cy={y} r="4" fill={i === blueIndex ? "#3b82f6" : "#f97316"} opacity="0.6" />
+               </g>
+             );
+          })}
+
+          {/* Side Ifrits (Prepare phase) */}
+          {gameState === GAME_STATE.SIDE_DASHES && (
+            <>
+              <circle cx="50" cy="2" r="5" fill="#ef4444" opacity="0.8" />
+              <circle cx="98" cy="50" r="5" fill="#ef4444" opacity="0.8" />
+            </>
+          )}
+
+          {/* Player */}
+          <circle cx={playerPos.x} cy={playerPos.y} r="2" fill="white" stroke="#3b82f6" strokeWidth="0.5" className="shadow-lg" />
+        </svg>
+
+        {/* Start / Failure Overlays */}
+        {(gameState === GAME_STATE.IDLE || gameState === GAME_STATE.FAILED || gameState === GAME_STATE.DONE) && (
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50">
+            {gameState === GAME_STATE.FAILED && (
+              <div className="flex flex-col items-center mb-8 text-red-500">
+                <AlertTriangle size={64} className="mb-4" />
+                <h2 className="text-4xl font-black">WIPED</h2>
+                <p className="text-slate-400 font-bold mt-2">被火神衝死啦！</p>
+              </div>
+            )}
+            {gameState === GAME_STATE.DONE && (
+               <div className="flex flex-col items-center mb-8 text-green-500">
+                <CheckCircle2 size={64} className="mb-4" />
+                <h2 className="text-4xl font-black">SUCCESS</h2>
+                <p className="text-slate-400 font-bold mt-2">完美閃避！</p>
+              </div>
+            )}
             <button
               onClick={startSimulation}
-              className="group relative bg-orange-600 hover:bg-orange-500 text-white px-10 py-5 rounded-2xl font-black text-2xl shadow-[0_10px_40px_-10px_rgba(234,88,12,0.5)] flex items-center gap-4 active:scale-95 transition-all overflow-hidden"
+              className="bg-orange-600 hover:bg-orange-500 text-white px-10 py-5 rounded-2xl font-black text-2xl shadow-xl transition-all active:scale-95 flex items-center gap-4"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-              <Play fill="white" size={28} />
-              開始練習
+              <Play fill="white" size={24} />
+              {gameState === GAME_STATE.IDLE ? '開始挑戰' : '再試一次'}
             </button>
-            <p className="mt-6 text-slate-400 font-medium tracking-wide">點擊按鈕生成火神配置</p>
+            <p className="mt-6 text-slate-500 text-sm font-medium">使用 WASD 控制玩家位移</p>
+          </div>
+        )}
+
+        {/* Timer UI */}
+        {(gameState === GAME_STATE.SIDE_PREPARE) && (
+          <div className="absolute top-1/4 flex flex-col items-center pointer-events-none">
+            <span className="text-xs font-bold text-slate-500 tracking-widest uppercase">Prepare for Dash</span>
+            <span className="text-6xl font-black text-white/20">{Math.ceil(timer)}</span>
           </div>
         )}
       </div>
 
-      {/* Controls Container */}
-      <div className="mt-10 w-full max-w-md animate-in slide-in-from-bottom duration-500">
-        {isSimulating ? (
-          <div className="flex flex-col gap-6">
-            <div className="flex gap-4">
-              <button
-                onClick={startSimulation}
-                className="flex-grow bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-lg shadow-blue-900/40 active:scale-95 transition-all"
-              >
-                <RefreshCw size={24} className="animate-spin-once" />
-                下一場練習
-              </button>
-              <button
-                onClick={resetSimulation}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-8 py-4 rounded-2xl font-bold active:scale-95 transition-all border border-slate-700"
-              >
-                結束
-              </button>
-            </div>
-            
-            <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 rounded-2xl p-6 text-slate-300 text-sm">
-              <h3 className="font-black text-orange-400 mb-3 flex items-center gap-2">
-                <Flame size={16} fill="currentColor" />
-                練習說明
-              </h3>
-              <ul className="space-y-2 list-disc list-inside text-slate-400 leading-relaxed font-medium">
-                <li>觀察四個火神在場地上的分布。</li>
-                <li>這四個火神會形成一個 <span className="text-white font-bold underline decoration-orange-500">梯形</span>。</li>
-                <li>找出特定的對角位子進行閃避，這是 UWU 火神階段的核心練習。</li>
-              </ul>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center text-slate-500 font-medium">
-             FF14 Ultimate Weapon Ultimate Simulation
-          </div>
-        )}
+      {/* Movement Controls UI Helper */}
+      <div className="mt-8 grid grid-cols-3 gap-2">
+         <div></div>
+         <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${keysPressed.current['w'] ? 'bg-orange-600 border-orange-400 scale-95' : 'border-slate-800 text-slate-600'}`}>W</div>
+         <div></div>
+         <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${keysPressed.current['a'] ? 'bg-orange-600 border-orange-400 scale-95' : 'border-slate-800 text-slate-600'}`}>A</div>
+         <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${keysPressed.current['s'] ? 'bg-orange-600 border-orange-400 scale-95' : 'border-slate-800 text-slate-600'}`}>S</div>
+         <div className={`w-12 h-12 rounded-xl flex items-center justify-center border-2 ${keysPressed.current['d'] ? 'bg-orange-600 border-orange-400 scale-95' : 'border-slate-800 text-slate-600'}`}>D</div>
       </div>
     </div>
   );
