@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Search, Database, Box, MapPin, Pickaxe, Hammer, ChevronRight, ChevronLeft, ShoppingBag, Trash2, Plus, Sun, Moon } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Database, Box, MapPin, Pickaxe, Hammer, ChevronRight, ChevronLeft, ShoppingBag, Trash2, Plus, Sun, Moon, Clock } from 'lucide-react';
+import { getEorzeaTime, getSpawnStatus, formatRealTime } from '../utils/eorzeaTime';
 
 const SearchItem = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +26,14 @@ const SearchItem = () => {
     const saved = localStorage.getItem('ff14-dark-mode');
     return saved === 'true';
   });
+  const [et, setEt] = useState(getEorzeaTime());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setEt(getEorzeaTime());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('ff14-dark-mode', isDarkMode);
@@ -238,6 +247,38 @@ const SearchItem = () => {
     });
   };
 
+  const renderTimedInfo = (node) => {
+    if (!node.timeRestriction || !node.spawns || node.spawns.length === 0) return null;
+    
+    const status = getSpawnStatus(node.spawns, node.duration);
+    
+    return (
+      <div className={`mt-2 p-3 rounded-xl flex items-center justify-between text-xs font-black shadow-sm border transition-all ${
+        status.isActive 
+          ? 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 animate-pulse'
+          : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50'
+      }`}>
+        <div className="flex items-center gap-2">
+          <Clock size={14} className={status.isActive ? 'animate-spin-slow' : ''} />
+          <div className="flex flex-col">
+            <span className="uppercase tracking-widest text-[10px] opacity-70">
+              {status.isActive ? '正在刷新中' : '等待刷新'}
+            </span>
+            <span>{node.spawns.map(s => `${String(s).padStart(2, '0')}:00`).join(', ')}</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className="text-[9px] opacity-70 uppercase tracking-tighter">
+            {status.isActive ? '剩餘持續時間' : '距離下次刷新'}
+          </span>
+          <span className="font-mono text-sm">
+            {status.isActive ? formatRealTime(status.secondsRemainingReal) : formatRealTime(status.secondsUntilReal)}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   const renderMiniMap = (itemId, nodes) => {
     if (!nodes || nodes.length === 0) return null;
     const firstNode = nodes[0];
@@ -290,6 +331,7 @@ const SearchItem = () => {
     const isExpanded = expandedIngredients.has(nodeKey);
     const ingredientNodes = gatheringData[node.id] || [];
     const hasGathering = ingredientNodes.length > 0;
+    const isTimed = ingredientNodes.some(n => n.timeRestriction);
 
     return (
       <div key={nodeKey} className="flex flex-col gap-1">
@@ -306,6 +348,11 @@ const SearchItem = () => {
             >
               {node.name}
             </span>
+            {isTimed && (
+              <span className="shrink-0 flex items-center gap-0.5 bg-amber-500 dark:bg-amber-600 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter shadow-sm">
+                <Clock size={8} /> 限時
+              </span>
+            )}
             {hasGathering && (
               <MapPin size={10} className={`${isExpanded ? 'text-red-500' : 'text-slate-400'} shrink-0`} />
             )}
@@ -377,7 +424,7 @@ const SearchItem = () => {
           </button>
         )}
         {/* 物品名稱 */}
-        <div className="border-b-2 border-slate-100 dark:border-slate-800 pb-5 flex justify-between items-end">
+        <div className="border-b-2 border-slate-100 dark:border-slate-800 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
               <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{selectedItem.name}</h2>
@@ -391,7 +438,13 @@ const SearchItem = () => {
                 </span>
               )}
             </div>
-            <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">ID: {selectedItem.id}</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">ID: {selectedItem.id}</p>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border-slate-200 dark:border-slate-700 shadow-sm">
+                <Clock size={12} />
+                <span className="font-mono">ET {String(et.hours).padStart(2, '0')}:{String(et.minutes).padStart(2, '0')}</span>
+              </div>
+            </div>
           </div>
           <button
             onClick={() => handleAddToTracker(selectedItem, 1)}
@@ -438,6 +491,7 @@ const SearchItem = () => {
                         </span>
                         <span className="text-sm text-slate-400 dark:text-slate-500 font-bold">{node.gatheringTypeName}</span>
                       </div>
+                      {renderTimedInfo(node)}
                     </div>
 
                     {/* 地圖顯示區 */}
