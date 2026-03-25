@@ -75,8 +75,27 @@ const SearchItem = () => {
           const queryStr = hash.includes('?') ? hash.split('?')[1] : '';
           const params = new URLSearchParams(queryStr);
           const selectedId = params.get('selected');
+          const searchQuery = params.get('q');
+          
           if (selectedId && data.items && data.items[selectedId]) {
             setSelectedItem(data.items[selectedId]);
+          } else if (searchQuery) {
+            setSearchTerm(searchQuery);
+            const term = searchQuery.toLowerCase();
+            const filtered = allItems.filter(item => {
+              if (!item) return false;
+              for (const key of Object.keys(item)) {
+                if (key.toLowerCase().includes('name')) {
+                  const val = item[key];
+                  if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
+                }
+              }
+              return false;
+            });
+            setResults(filtered.slice(0, 50));
+            if (filtered.length === 1) {
+              setSelectedItem(filtered[0]);
+            }
           }
           
           setIsInitializing(false);
