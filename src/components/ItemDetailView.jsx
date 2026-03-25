@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Box, MapPin, Pickaxe, Hammer, ChevronLeft, ShoppingBag, Database 
+  Box, MapPin, Pickaxe, Hammer, ChevronLeft, ShoppingBag, Database, Clock
 } from 'lucide-react';
+import { getEorzeaTime, getSpawnStatus, formatRealTime } from '../utils/eorzeaTime';
 
 const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
   const [gatheringData, setGatheringData] = useState({});
@@ -12,6 +13,14 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
   const [loading, setLoading] = useState(true);
   const [selectedMapNode, setSelectedMapNode] = useState(null);
   const [resolvedItem, setResolvedItem] = useState(null);
+  const [et, setEt] = useState(getEorzeaTime());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setEt(getEorzeaTime());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -105,6 +114,35 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
       </div>
     );
   };
+  const renderTimedInfo = (node) => {
+    if (!node.timeRestriction || !node.spawns || node.spawns.length === 0) return null;
+    
+    const status = getSpawnStatus(node.spawns, node.duration);
+    
+    return (
+      <div className={`mt-2 p-2 rounded-lg flex items-center justify-between text-[11px] font-bold ${
+        status.isActive 
+          ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-green-50 text-green-700 border border-green-200')
+          : (isDarkMode ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-amber-50 text-amber-700 border border-amber-200')
+      }`}>
+        <div className="flex items-center gap-1.5">
+          <Clock size={12} className={status.isActive ? 'animate-pulse' : ''} />
+          <span>
+            {status.isActive ? '正在刷新中' : '等待刷新'} 
+            ({node.spawns.map(s => `${String(s).padStart(2, '0')}:00`).join(', ')})
+          </span>
+        </div>
+        <div className="flex flex-col items-end">
+          <span className="text-[9px] opacity-70 uppercase tracking-tighter">
+            {status.isActive ? '剩餘持續時間' : '距離下次刷新'}
+          </span>
+          <span className="font-mono">
+            {status.isActive ? formatRealTime(status.secondsRemainingReal) : formatRealTime(status.secondsUntilReal)}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -140,15 +178,25 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
       )}
 
       <div className={`border-b ${isDarkMode ? 'border-white/10' : 'border-slate-200'} pb-6`}>
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center justify-between gap-3 mb-2">
           <h2 className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'} tracking-tight`}>{resolvedItem.name}</h2>
-          {nodes.length > 0 && (
-            <span className={`${isDarkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-green-100 text-green-700'} px-2 py-1 rounded text-[10px] font-black border ${isDarkMode ? 'border-emerald-500/20' : 'border-green-200'}`}>
-              可採集
+          <div className="flex flex-col items-end">
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border ${
+              isDarkMode ? 'bg-slate-800 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-700 border-blue-200'
+            }`}>
+              <Clock size={12} />
+              <span className="font-mono">ET {String(et.hours).padStart(2, '0')}:{String(et.minutes).padStart(2, '0')}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2 mb-2">
+          <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} font-mono`}>ID: {resolvedItem.id}</p>
+          {nodes.some(n => n.timeRestriction) && (
+            <span className={`${isDarkMode ? 'bg-amber-500/20 text-amber-500' : 'bg-amber-100 text-amber-700'} px-2 py-0.5 rounded text-[10px] font-black border ${isDarkMode ? 'border-amber-500/20' : 'border-amber-200'}`}>
+              限時採集
             </span>
           )}
         </div>
-        <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} font-mono`}>ID: {resolvedItem.id}</p>
       </div>
 
       {nodes.length > 0 && (
@@ -176,6 +224,7 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
                     <span className={`text-[10px] ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-white border-slate-100 text-slate-500'} px-2 py-0.5 rounded border`}>X:{node.x}, Y:{node.y}</span>
                     <span className={`text-[10px] ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-white border-slate-100 text-slate-500'} px-2 py-0.5 rounded border`}>Lv.{node.level}</span>
                   </div>
+                  {renderTimedInfo(node)}
                 </div>
                 {selectedMapNode === i && renderMiniMap([node])}
               </div>
