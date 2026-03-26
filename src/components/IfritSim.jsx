@@ -207,15 +207,7 @@ const IfritSim = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center p-4">
-      <div className="w-full max-w-4xl flex items-center justify-between mb-4">
-        <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-          <ChevronLeft size={20} />
-          <span className="font-bold">返回首頁</span>
-        </Link>
-        <h1 className="text-2xl font-black tracking-tight text-orange-500 uppercase italic">Ifrit Dash Simulation</h1>
-        <div className="w-24"></div>
-      </div>
+    <div className="flex-1 flex flex-col items-center p-4 overflow-y-auto w-full">
 
       <div className="relative w-full aspect-square max-w-[70vh] bg-slate-900 rounded-full border-4 border-slate-800 shadow-[0_0_100px_-20px_rgba(249,115,22,0.15)] overflow-hidden flex items-center justify-center select-none">
         <svg viewBox="0 0 100 100" className="w-full h-full p-0 pointer-events-none overflow-visible">

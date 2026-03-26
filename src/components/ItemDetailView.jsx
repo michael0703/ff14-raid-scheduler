@@ -249,9 +249,29 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
                 </div>
                 <div className="space-y-1">
                   {(recipe.ingredients || []).map((ing, ii) => (
-                    <div key={ii} className={`flex justify-between items-center text-sm p-2 rounded ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-blue-50'} transition-colors`}>
-                      <span className={isDarkMode ? 'text-slate-300' : 'text-slate-700'}>{itemsMap[ing.itemId]?.name || `#${ing.itemId}`}</span>
-                      <span className={`font-black ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>×{ing.amount}</span>
+                    <div key={ii} className={`flex flex-col gap-1 p-2 rounded ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-blue-50'} transition-colors`}>
+                      <div className="flex justify-between items-center text-sm w-full">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className={isDarkMode ? 'text-slate-300' : 'text-slate-700'}>{itemsMap[ing.itemId]?.name || `#${ing.itemId}`}</span>
+                          {(() => {
+                            const nodeData = gatheringData[ing.itemId];
+                            if (!nodeData || !nodeData.some(n => n.timeRestriction)) return null;
+                            const node = nodeData.find(n => n.timeRestriction);
+                            const status = getSpawnStatus(node.spawns, node.duration);
+                            return (
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <span className={`${isDarkMode ? 'bg-amber-500/20 text-amber-500' : 'bg-amber-100 text-amber-700'} px-1.5 py-0.5 rounded-[4px] text-[8px] font-black border ${isDarkMode ? 'border-amber-500/20' : 'border-amber-200'} flex items-center gap-1 shrink-0`}>
+                                  <Clock size={8} className="animate-pulse" /> 限時
+                                </span>
+                                <span className={`text-[9px] font-mono whitespace-nowrap ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                  {status.isActive ? '剩餘' : '下次'}: {status.isActive ? formatRealTime(status.secondsRemainingReal) : formatRealTime(status.secondsUntilReal)}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        <span className={`font-black ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>×{ing.amount}</span>
+                      </div>
                     </div>
                   ))}
                 </div>

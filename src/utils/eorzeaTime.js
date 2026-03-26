@@ -22,9 +22,10 @@ export const getEorzeaTime = (date = new Date()) => {
  * Calculate the next spawn and remaining time
  * @param {number[]} spawns - Array of ET hours (0-23)
  * @param {number} duration - Duration in ET minutes
+ * @param {Date} [referenceDate] - Optional reference date
  */
-export const getSpawnStatus = (spawns, duration) => {
-  const now = getEorzeaTime();
+export const getSpawnStatus = (spawns, duration, referenceDate = new Date()) => {
+  const now = getEorzeaTime(referenceDate);
   const nowMin = now.totalMinutes;
   
   // Sort spawns just in case

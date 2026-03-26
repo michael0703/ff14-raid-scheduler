@@ -4,29 +4,7 @@ import { Shield, Search, Ship, Flame } from 'lucide-react';
 
 const HomePage = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-200 text-white">
-                <Shield size={24} />
-              </div>
-              <div>
-                <h1 className="text-xl font-black text-slate-800 tracking-tight">FF14 工具箱</h1>
-                <p className="text-xs text-slate-500 font-medium">個人常用工具集</p>
-              </div>
-            </div>
-            <nav className="hidden md:flex items-center gap-6">
-              <Link to="/" className="text-blue-600 font-black text-sm">首頁</Link>
-              <Link to="/search-item" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">查找物品</Link>
-              <Link to="/submarine" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">潛水艇採集</Link>
-              <Link to="/ifrit-sim" className="text-slate-600 hover:text-blue-600 font-medium text-sm transition-colors">火神衝練習</Link>
-            </nav>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-full flex flex-col">
 
       {/* Hero Section */}
       <section className="relative flex-grow flex items-center justify-center overflow-hidden bg-gradient-to-r from-blue-600 to-purple-600 text-white min-h-[60vh]">

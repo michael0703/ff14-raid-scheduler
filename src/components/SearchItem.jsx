@@ -22,10 +22,6 @@ const SearchItem = () => {
     const saved = localStorage.getItem('ff14-tracked-items');
     return saved ? JSON.parse(saved) : [];
   });
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem('ff14-dark-mode');
-    return saved === 'true';
-  });
   const [et, setEt] = useState(getEorzeaTime());
 
   useEffect(() => {
@@ -34,15 +30,6 @@ const SearchItem = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('ff14-dark-mode', isDarkMode);
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [isDarkMode]);
 
   useEffect(() => {
     let mounted = true;
@@ -65,10 +52,10 @@ const SearchItem = () => {
         const allItems = Object.values(data.items || data);
         if (mounted) {
           setCachedItems(allItems);
-          setItemsMap(data.items || {});
-          setGatheringData(gathering.points || {});
-          setRecipeData(recipes.recipes || {});
-          setSourcesData(sources.sources || {});
+          setItemsMap(data.items || data);
+          setGatheringData(gathering.points || gathering);
+          setRecipeData(recipes.recipes || recipes);
+          setSourcesData(sources.sources || sources);
           
           // Pre-index maps by ID for faster lookup
           const mapsById = {};
@@ -86,8 +73,9 @@ const SearchItem = () => {
           const selectedId = params.get('selected');
           const searchQuery = params.get('q');
           
-          if (selectedId && data.items && data.items[selectedId]) {
-            setSelectedItem(data.items[selectedId]);
+          const itemInfo = (data.items || data)[selectedId];
+          if (selectedId && itemInfo) {
+            setSelectedItem(itemInfo);
           } else if (searchQuery) {
             setSearchTerm(searchQuery);
             const term = searchQuery.toLowerCase();
@@ -158,6 +146,8 @@ const SearchItem = () => {
     const term = searchTerm.toLowerCase();
     const filtered = cachedItems.filter(item => {
       if (!item) return false;
+      if (typeof item.id === 'number' && String(item.id) === term) return true;
+      if (typeof item.id === 'string' && item.id === term) return true;
       for (const key of Object.keys(item)) {
         if (key.toLowerCase().includes('name')) {
           const val = item[key];
@@ -349,9 +339,20 @@ const SearchItem = () => {
               {node.name}
             </span>
             {isTimed && (
-              <span className="shrink-0 flex items-center gap-0.5 bg-amber-500 dark:bg-amber-600 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter shadow-sm">
-                <Clock size={8} /> 限時
-              </span>
+              <div className="flex items-center gap-1.5 overflow-hidden">
+                <span className="shrink-0 flex items-center gap-0.5 bg-amber-500 dark:bg-amber-600 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter shadow-sm">
+                  <Clock size={8} /> 限時
+                </span>
+                {(() => {
+                  const node = ingredientNodes.find(n => n.timeRestriction);
+                  const status = getSpawnStatus(node.spawns, node.duration);
+                  return (
+                    <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                      {status.isActive ? '剩餘' : '下次'}: {status.isActive ? formatRealTime(status.secondsRemainingReal) : formatRealTime(status.secondsUntilReal)}
+                    </span>
+                  );
+                })()}
+              </div>
             )}
             {hasGathering && (
               <MapPin size={10} className={`${isExpanded ? 'text-red-500' : 'text-slate-400'} shrink-0`} />
@@ -411,6 +412,13 @@ const SearchItem = () => {
     const id = String(selectedItem.id);
     const nodes = gatheringData[id] || [];
     const recipes = recipeData[id] || [];
+    const sources = sourcesData[id] || [];
+
+    const hasGC = sources.some(s => s.type === 'gcshop' || s.currency === 'gc_seals');
+    const hasPoetics = !hasGC && sources.some(s => 
+      s.currencyItemId === 28 || 
+      (s.typeName && (s.typeName.includes('詩學') || s.typeName.includes('神典石')))
+    );
 
     return (
       <div className="flex flex-col gap-6">
@@ -435,6 +443,16 @@ const SearchItem = () => {
               ) : (
                 <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700">
                   非採集物品
+                </span>
+              )}
+              {hasGC && (
+                <span className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-indigo-200 dark:border-indigo-800">
+                  <ShoppingBag size={10} /> 軍票兌換
+                </span>
+              )}
+              {hasPoetics && (
+                <span className="flex items-center gap-1 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-purple-200 dark:border-purple-800">
+                  <Database size={10} /> 詩學兌換
                 </span>
               )}
             </div>
@@ -722,27 +740,7 @@ const SearchItem = () => {
 
   // ── Main layout ───────────────────────────────────────────────
   return (
-    <div className={`min-h-screen flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-slate-950' : 'bg-slate-100'}`}>
-      {/* Top bar */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center gap-4 sticky top-0 z-10 shadow-sm transition-colors duration-300">
-        <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-100 dark:shadow-none"><Search size={22} /></div>
-        <span className="font-extrabold text-slate-800 dark:text-slate-100 text-xl tracking-tight">FF14 物品查詢</span>
-        
-        {/* Dark Mode Toggle */}
-        <button
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          className="ml-4 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
-          title={isDarkMode ? '切換至日間模式' : '切換至夜間模式'}
-        >
-          {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-
-        <div className="ml-auto text-sm text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-1.5 rounded-full font-black border border-emerald-200 dark:border-emerald-800">
-          <Database size={14} className="inline mr-1.5" />{cachedItems.length.toLocaleString()} 筆已快取
-        </div>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 57px)' }}>
+    <div className="flex flex-1 overflow-hidden h-full">
         {/* ── Left panel ── */}
         <div className="w-72 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-colors duration-300">
           {/* Search form */}
@@ -793,9 +791,15 @@ const SearchItem = () => {
                         <Pickaxe size={12} />
                       </div>
                     )}
-                    {sourcesData[item.id] && sourcesData[item.id].some(s => s.type === 'gcshop') && (
+                    {sourcesData[item.id] && sourcesData[item.id].some(s => s.type === 'gcshop' || s.currency === 'gc_seals') && (
                       <div className="shrink-0 text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 p-0.5 rounded" title="軍票兌換">
                         <ShoppingBag size={12} />
+                      </div>
+                    )}
+                    {sourcesData[item.id] && !sourcesData[item.id].some(s => s.type === 'gcshop' || s.currency === 'gc_seals') && 
+                     sourcesData[item.id].some(s => s.currencyItemId === 28 || (s.typeName && (s.typeName.includes('詩學') || s.typeName.includes('神典石')))) && (
+                      <div className="shrink-0 text-purple-500 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 p-0.5 rounded" title="詩學兌換">
+                        <Database size={12} />
                       </div>
                     )}
                   </div>
@@ -816,7 +820,6 @@ const SearchItem = () => {
 
         {/* ── Right panel (Tracker) ── */}
         {renderTracker()}
-      </div>
     </div>
   );
 };

@@ -5,15 +5,26 @@ import SearchItem from './components/SearchItem';
 import SubmarineGathering from './components/SubmarineGathering';
 import IfritSim from './components/IfritSim';
 
+import Layout from './components/Layout';
+import { Navigate, useParams } from 'react-router-dom';
+
+const ItemRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/search-item?selected=${id}`} replace />;
+};
+
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/search-item" element={<SearchItem />} />
-        <Route path="/submarine" element={<SubmarineGathering />} />
-        <Route path="/ifrit-sim" element={<IfritSim />} />
-      </Routes>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/search-item" element={<SearchItem />} />
+          <Route path="/item/:id" element={<ItemRedirect />} />
+          <Route path="/submarine" element={<SubmarineGathering />} />
+          <Route path="/ifrit-sim" element={<IfritSim />} />
+        </Routes>
+      </Layout>
     </Router>
   );
 }
