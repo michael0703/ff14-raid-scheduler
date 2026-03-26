@@ -249,19 +249,19 @@ const SearchItem = () => {
           : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50'
       }`}>
         <div className="flex items-center gap-2">
-          <Clock size={14} className={status.isActive ? 'animate-spin-slow' : ''} />
+          <Clock size={16} className={status.isActive ? 'animate-spin-slow' : ''} />
           <div className="flex flex-col">
-            <span className="uppercase tracking-widest text-[10px] opacity-70">
+            <span className="uppercase tracking-widest text-[11px] opacity-70">
               {status.isActive ? '正在刷新中' : '等待刷新'}
             </span>
-            <span>{node.spawns.map(s => `${String(s).padStart(2, '0')}:00`).join(', ')}</span>
+            <span className="text-[13px]">{node.spawns.map(s => `${String(s).padStart(2, '0')}:00`).join(', ')}</span>
           </div>
         </div>
         <div className="flex flex-col items-end">
-          <span className="text-[9px] opacity-70 uppercase tracking-tighter">
+          <span className="text-[10px] opacity-70 uppercase tracking-tighter">
             {status.isActive ? '剩餘持續時間' : '距離下次刷新'}
           </span>
-          <span className="font-mono text-sm">
+          <span className="font-mono text-base">
             {status.isActive ? formatRealTime(status.secondsRemainingReal) : formatRealTime(status.secondsUntilReal)}
           </span>
         </div>
@@ -340,14 +340,14 @@ const SearchItem = () => {
             </span>
             {isTimed && (
               <div className="flex items-center gap-1.5 overflow-hidden">
-                <span className="shrink-0 flex items-center gap-0.5 bg-amber-500 dark:bg-amber-600 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter shadow-sm">
-                  <Clock size={8} /> 限時
+                <span className="shrink-0 flex items-center gap-1 bg-amber-500 dark:bg-amber-600 text-white px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter shadow-sm">
+                  <Clock size={10} /> 限時
                 </span>
                 {(() => {
                   const node = ingredientNodes.find(n => n.timeRestriction);
                   const status = getSpawnStatus(node.spawns, node.duration);
                   return (
-                    <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    <span className="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
                       {status.isActive ? '剩餘' : '下次'}: {status.isActive ? formatRealTime(status.secondsRemainingReal) : formatRealTime(status.secondsUntilReal)}
                     </span>
                   );
@@ -437,22 +437,22 @@ const SearchItem = () => {
             <div className="flex items-center gap-3">
               <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{selectedItem.name}</h2>
               {nodes.length > 0 ? (
-                <span className="flex items-center gap-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800">
-                  <Pickaxe size={10} /> 可採集
+                <span className="flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800 shadow-sm">
+                  <Pickaxe size={12} /> 可採集
                 </span>
               ) : (
-                <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700">
+                <span className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700 shadow-sm">
                   非採集物品
                 </span>
               )}
               {hasGC && (
-                <span className="flex items-center gap-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-indigo-200 dark:border-indigo-800">
-                  <ShoppingBag size={10} /> 軍票兌換
+                <span className="flex items-center gap-1.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 px-3 py-1 rounded-md text-[11px] font-black uppercase tracking-wider border border-indigo-200 dark:border-indigo-800 shadow-sm">
+                  <ShoppingBag size={12} /> 軍票兌換
                 </span>
               )}
               {hasPoetics && (
-                <span className="flex items-center gap-1 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border border-purple-200 dark:border-purple-800">
-                  <Database size={10} /> 詩學兌換
+                <span className="flex items-center gap-1.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 px-3 py-1 rounded-md text-[11px] font-black uppercase tracking-wider border border-purple-200 dark:border-purple-800 shadow-sm">
+                  <Database size={12} /> 詩學兌換
                 </span>
               )}
             </div>

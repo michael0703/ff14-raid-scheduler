@@ -192,7 +192,7 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
         <div className="flex gap-2 mb-2">
           <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} font-mono`}>ID: {resolvedItem.id}</p>
           {nodes.some(n => n.timeRestriction) && (
-            <span className={`${isDarkMode ? 'bg-amber-500/20 text-amber-500' : 'bg-amber-100 text-amber-700'} px-2 py-0.5 rounded text-[10px] font-black border ${isDarkMode ? 'border-amber-500/20' : 'border-amber-200'}`}>
+            <span className={`${isDarkMode ? 'bg-amber-500/20 text-amber-500' : 'bg-amber-100 text-amber-700'} px-2.5 py-1 rounded text-[11px] font-black border ${isDarkMode ? 'border-amber-500/20' : 'border-amber-200'}`}>
               限時採集
             </span>
           )}
@@ -260,10 +260,10 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
                             const status = getSpawnStatus(node.spawns, node.duration);
                             return (
                               <div className="flex items-center gap-1.5 overflow-hidden">
-                                <span className={`${isDarkMode ? 'bg-amber-500/20 text-amber-500' : 'bg-amber-100 text-amber-700'} px-1.5 py-0.5 rounded-[4px] text-[8px] font-black border ${isDarkMode ? 'border-amber-500/20' : 'border-amber-200'} flex items-center gap-1 shrink-0`}>
-                                  <Clock size={8} className="animate-pulse" /> 限時
+                                <span className={`${isDarkMode ? 'bg-amber-500/20 text-amber-500' : 'bg-amber-100 text-amber-700'} px-2 py-0.5 rounded-[4px] text-[10px] font-black border ${isDarkMode ? 'border-amber-500/20' : 'border-amber-200'} flex items-center gap-1 shrink-0`}>
+                                  <Clock size={10} className="animate-pulse" /> 限時
                                 </span>
-                                <span className={`text-[9px] font-mono whitespace-nowrap ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                <span className={`text-[11px] font-mono font-bold whitespace-nowrap ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                                   {status.isActive ? '剩餘' : '下次'}: {status.isActive ? formatRealTime(status.secondsRemainingReal) : formatRealTime(status.secondsUntilReal)}
                                 </span>
                               </div>

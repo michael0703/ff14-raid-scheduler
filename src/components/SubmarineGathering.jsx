@@ -346,14 +346,14 @@ const SubmarineGathering = () => {
                                 <div className="flex flex-wrap items-center gap-1.5 mt-1 overflow-hidden">
                                   {m.id && gatheringData && gatheringData[m.id] && gatheringData[m.id].some(n => n.timeRestriction) && (
                                     <>
-                                      <span className={`${isDarkMode ? 'bg-amber-500/10 text-amber-500' : 'bg-amber-50 text-amber-700'} px-1.5 py-0.5 rounded-[4px] text-[8px] font-black border ${isDarkMode ? 'border-amber-500/20' : 'border-amber-200'} flex items-center gap-1 shrink-0`}>
-                                        <Clock size={8} className="animate-pulse" /> 限時
+                                      <span className={`${isDarkMode ? 'bg-amber-500/10 text-amber-500' : 'bg-amber-50 text-amber-700'} px-2 py-0.5 rounded-[4px] text-[10px] font-black border ${isDarkMode ? 'border-amber-500/20' : 'border-amber-200'} flex items-center gap-1 shrink-0`}>
+                                        <Clock size={10} className="animate-pulse" /> 限時
                                       </span>
                                       {(() => {
                                         const node = gatheringData[m.id].find(n => n.timeRestriction);
                                         const status = getSpawnStatus(node.spawns, node.duration);
                                         return (
-                                          <span className={`text-[9px] font-mono whitespace-nowrap ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                                          <span className={`text-[11px] font-mono font-bold whitespace-nowrap ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                                             {status.isActive ? '剩餘' : '下次'}: {status.isActive ? formatRealTime(status.secondsRemainingReal) : formatRealTime(status.secondsUntilReal)}
                                           </span>
                                         );
@@ -361,8 +361,8 @@ const SubmarineGathering = () => {
                                     </>
                                   )}
                                   {m.id && sourcesData && sourcesData[m.id] && sourcesData[m.id].some(s => s.type === 'gcshop') && (
-                                    <span className={`${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-700'} px-1.5 py-0.5 rounded-[4px] text-[8px] font-black border ${isDarkMode ? 'border-blue-500/20' : 'border-blue-200'} flex items-center gap-1 shrink-0`}>
-                                      <ShoppingBag size={8} /> 軍票兌換
+                                    <span className={`${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-700'} px-2 py-0.5 rounded-[4px] text-[10px] font-black border ${isDarkMode ? 'border-blue-500/20' : 'border-blue-200'} flex items-center gap-1 shrink-0`}>
+                                      <ShoppingBag size={10} /> 軍票兌換
                                     </span>
                                   )}
                                 </div>
