@@ -59,14 +59,20 @@ const UltimatePredationSim = () => {
     // Ifrit: Random Intercardinal (45, 135, 225, 315)
     // Titan: Random Cardinal (0, 90, 180, 270)
     
-    // Shuffle intercardinals to ensure unique positions for Garuda, Ifrit, Ultima
-    const intercardinals = [45, 135, 225, 315].sort(() => Math.random() - 0.5);
-    const cardinals = [0, 90, 180, 270];
+    // Garuda: Center 4 intercardinal directions (45, 135, 225, 315)
+    // Ifrit, Titan, Ultima: Any of the 8 edge positions (0, 45, 90, 135, 180, 225, 270, 315)
     
-    const gPos = intercardinals[0];
-    const uPos = intercardinals[1];
-    const iPos = intercardinals[2];
-    const tPos = cardinals[Math.floor(Math.random() * 4)];
+    // Pick Garuda's angle first
+    const gPos = [45, 135, 225, 315][Math.floor(Math.random() * 4)];
+    
+    // Pick 3 unique angles for the other 3 bosses from all 8, excluding gPos to avoid overlap
+    const availablePositions = [0, 45, 90, 135, 180, 225, 270, 315]
+      .filter(angle => angle !== gPos)
+      .sort(() => Math.random() - 0.5);
+    
+    const uPos = availablePositions[0];
+    const iPos = availablePositions[1];
+    const tPos = availablePositions[2];
 
     setBosses({
       garuda: { angle: gPos, state: 'VISIBLE' },
