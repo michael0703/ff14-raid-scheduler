@@ -46,6 +46,7 @@ const UltimatePredationSim = () => {
   const [garudaWheelRadius, setGarudaWheelRadius] = useState(20);
   const [garudaTornadoInner, setGarudaTornadoInner] = useState(15);
   const [garudaTornadoOuter, setGarudaTornadoOuter] = useState(60);
+  const [ultimaVentRadius, setUltimaVentRadius] = useState(40);
 
   const requestRef = useRef();
   const keysPressed = useRef({});
@@ -59,20 +60,19 @@ const UltimatePredationSim = () => {
     // Ifrit: Random Intercardinal (45, 135, 225, 315)
     // Titan: Random Cardinal (0, 90, 180, 270)
     
-    // Garuda: Center 4 intercardinal directions (45, 135, 225, 315)
-    // Ifrit, Titan, Ultima: Any of the 8 edge positions (0, 45, 90, 135, 180, 225, 270, 315)
+    // Garuda, Ifrit, Ultima: Strictly 3 out of 4 intercardinal directions (45, 135, 225, 315)
+    // Titan: Any of the 8 perimeter positions (0, 45, 90, 135, 180, 225, 270, 315)
     
-    // Pick Garuda's angle first
-    const gPos = [45, 135, 225, 315][Math.floor(Math.random() * 4)];
+    // Pick Titan's position first to allow full 8-way flexibility
+    const tPos = [0, 45, 90, 135, 180, 225, 270, 315][Math.floor(Math.random() * 8)];
     
-    // Pick 3 unique angles for the other 3 bosses from all 8, excluding gPos to avoid overlap
-    const availablePositions = [0, 45, 90, 135, 180, 225, 270, 315]
-      .filter(angle => angle !== gPos)
-      .sort(() => Math.random() - 0.5);
+    // Pick 3 from the 4 intercardinal directions, excluding tPos if it's an intercardinal
+    const intercardinals = [45, 135, 225, 315].filter(angle => angle !== tPos).sort(() => Math.random() - 0.5);
     
-    const uPos = availablePositions[0];
-    const iPos = availablePositions[1];
-    const tPos = availablePositions[2];
+    // Assign Garuda, Ifrit, Ultima (G/I/U always take from 45, 135, 225, 315)
+    const gPos = intercardinals[0];
+    const iPos = intercardinals[1];
+    const uPos = intercardinals[2];
 
     setBosses({
       garuda: { angle: gPos, state: 'VISIBLE' },
@@ -153,7 +153,8 @@ const UltimatePredationSim = () => {
       addMechanic('garuda-wheel', timeN, 0.5, { type: 'circle', x: garudaPos.x, y: garudaPos.y, r: garudaWheelRadius, color: 'rgba(34, 197, 94, 0.4)' });
 
       // 2. Ultima/Titan/Ifrit 1 (N + X)
-      addMechanic('ultima-vent', timeNX, 1.0, { type: 'circle', x: getCoords(bosses.ultima.angle, 40).x, y: getCoords(bosses.ultima.angle, 40).y, r: 40, color: 'rgba(168, 85, 247, 0.3)' });
+      const ultimaPos = getCoords(bosses.ultima.angle, 40);
+      addMechanic('ultima-vent', timeNX, 1.0, { type: 'circle', x: ultimaPos.x, y: ultimaPos.y, r: ultimaVentRadius, color: 'rgba(168, 85, 247, 0.3)' });
       
       const ifritProps = { type: 'rect', x: 50, y: 50, w: ifritDashWidth, h: 120, angle: bosses.ifrit.angle, color: 'rgba(239, 68, 68, 0.4)' };
       addMechanic('ifrit-dash', timeNX, 0.5, ifritProps);
@@ -429,6 +430,13 @@ const UltimatePredationSim = () => {
                   <span className="text-green-500">{garudaTornadoOuter}u</span>
                 </div>
                 <input type="range" min="20" max="100" step="1" value={garudaTornadoOuter} onChange={(e) => setGarudaTornadoOuter(parseInt(e.target.value))} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-green-500" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] font-bold">
+                  <span className="text-slate-400 italic">Ultima Vent Radius (圓形 AOE)</span>
+                  <span className="text-purple-500">{ultimaVentRadius}u</span>
+                </div>
+                <input type="range" min="10" max="60" step="1" value={ultimaVentRadius} onChange={(e) => setUltimaVentRadius(parseInt(e.target.value))} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500" />
               </div>
             </div>
           ) : (
