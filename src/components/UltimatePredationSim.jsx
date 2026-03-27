@@ -35,11 +35,11 @@ const UltimatePredationSim = () => {
   const [showTuning, setShowTuning] = useState(false);
 
   // Timing Parameters (Relative N, X, A)
-  const [startDelay, setStartDelay] = useState(2.0);
-  const [mechanicDuration, setMechanicDuration] = useState(12.0);
+  const [startDelay, setStartDelay] = useState(3.0);
+  const [mechanicDuration, setMechanicDuration] = useState(10.0);
   const [delayN, setDelayN] = useState(2.0); // Start -> Garuda Wheel
-  const [delayX, setDelayX] = useState(2.0); // Garuda Wheel -> Titan/Ultima/Ifrit 1
-  const [delayA, setDelayA] = useState(2.0); // First Hit -> Final Hits
+  const [delayX, setDelayX] = useState(5.0); // Garuda Wheel -> Titan/Ultima/Ifrit 1
+  const [delayA, setDelayA] = useState(3.0); // First Hit -> Final Hits
   const [titanFanAngle, setTitanFanAngle] = useState(45);
   const [ifritDashWidth, setIfritDashWidth] = useState(25);
   const [ifritCrossWidth, setIfritCrossWidth] = useState(15);
