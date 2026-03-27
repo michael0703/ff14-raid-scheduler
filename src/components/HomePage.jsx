@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Search, Ship, Flame } from 'lucide-react';
+import { Shield, Search, Ship, Flame, Zap } from 'lucide-react';
 
 const HomePage = () => {
   return (
@@ -32,6 +32,13 @@ const HomePage = () => {
                 <Flame size={24} />
                 火神衝練習
               </Link>
+              <Link
+                to="/ultimate-predation"
+                className="inline-flex items-center gap-2 bg-purple-600 text-white px-10 py-5 rounded-xl font-black shadow-lg hover:bg-purple-700 transition-all active:scale-95 text-lg"
+              >
+                <Zap size={24} />
+                絕神兵一運
+              </Link>
             </div>
           </div>
         </div>
@@ -60,6 +67,9 @@ const HomePage = () => {
                 <li><Link to="/search-item" className="hover:text-white transition-colors">查找物品</Link></li>
                 <li><Link to="/submarine" className="hover:text-white transition-colors">潛水艇採集</Link></li>
                 <li><Link to="/ifrit-sim" className="hover:text-white transition-colors">火神衝練習</Link></li>
+                <li><Link to="/ultimate-predation" className="hover:text-white transition-colors">絕神兵一運練習</Link></li>
+                <li><Link to="/titan-test" className="hover:text-white transition-colors text-orange-500 font-bold">【測試】土神正拳範圍</Link></li>
+                <li><Link to="/garuda-test" className="hover:text-white transition-colors text-green-500 font-bold">【測試】風神鋼鐵月環大小</Link></li>
               </ul>
             </div>
 
