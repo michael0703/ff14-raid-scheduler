@@ -23,6 +23,7 @@ const SearchItem = () => {
     const saved = localStorage.getItem('ff14-tracked-items');
     return saved ? JSON.parse(saved) : [];
   });
+  const [isDeepTracking, setIsDeepTracking] = useState(true);
   const [et, setEt] = useState(getEorzeaTime());
 
   useEffect(() => {
@@ -177,6 +178,59 @@ const SearchItem = () => {
         : [];
       return { id: ingId, name, amount: ing.amount, children, depth };
     });
+
+  // ── Material Aggregation ──────────────────────────────────────
+  const aggregateMaterials = useMemo(() => {
+    if (!trackedItems.length || !itemsMap || !recipeData || Object.keys(itemsMap).length === 0) return [];
+
+    const result = {};
+
+    const decompose = (itemId, amount, visited = new Set()) => {
+      const recipes = recipeData[itemId];
+      
+      // Prevent infinite recursion for cyclic recipes if any
+      if (visited.has(itemId)) {
+        result[itemId] = (result[itemId] || 0) + amount;
+        return;
+      }
+      
+      // If no recipe, it's a base material
+      if (!recipes || recipes.length === 0) {
+        result[itemId] = (result[itemId] || 0) + amount;
+        return;
+      }
+
+      // Use the first recipe
+      const recipe = recipes[0];
+      const yieldAmount = recipe.resultAmount || 1;
+      const craftCount = Math.ceil(amount / yieldAmount);
+
+      const nextVisited = new Set(visited);
+      nextVisited.add(itemId);
+
+      (recipe.ingredients || []).forEach(ing => {
+        decompose(String(ing.itemId), ing.amount * craftCount, nextVisited);
+      });
+    };
+
+    trackedItems.forEach(item => {
+      decompose(String(item.id), item.amount);
+    });
+
+    return Object.entries(result).map(([id, amount]) => ({
+      id,
+      name: itemsMap[id]?.name || `#${id}`,
+      amount
+    })).sort((a, b) => {
+      // Sort by mapId (similar to trackedItems list)
+      const nodesA = gatheringData[a.id] || [];
+      const nodesB = gatheringData[b.id] || [];
+      const keyA = nodesA.length > 0 ? (nodesA[0].mapId || 999999) : 999999;
+      const keyB = nodesB.length > 0 ? (nodesB[0].mapId || 999999) : 999999;
+      if (keyA !== keyB) return keyA - keyB;
+      return a.name.localeCompare(b.name, 'zh-Hant');
+    });
+  }, [trackedItems, itemsMap, recipeData, gatheringData]);
 
   const depthColors = [
     'border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-700/50',
@@ -696,88 +750,182 @@ const SearchItem = () => {
   const renderTracker = () => {
     return (
       <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 w-72 shrink-0 overflow-hidden">
-        <header className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-base font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">
-            <ShoppingBag size={18} className="text-emerald-500" /> 追蹤清單
-          </h3>
-          {trackedItems.length > 0 && (
-            <button 
-              onClick={() => setTrackedItems([])}
-              className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase"
-            >
-              全部清除
-            </button>
-          )}
+        <header className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-base font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+              <ShoppingBag size={18} className="text-emerald-500" /> 追蹤清單
+            </h3>
+            {trackedItems.length > 0 && (
+              <button 
+                onClick={() => setTrackedItems([])}
+                className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase"
+              >
+                全部清除
+              </button>
+            )}
+          </div>
+          
+          {/* 基礎材料模式切換 */}
+          <button 
+            onClick={() => setIsDeepTracking(!isDeepTracking)}
+            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+              isDeepTracking 
+                ? 'bg-indigo-600 border-indigo-400 text-white shadow-md' 
+                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-400'
+            }`}
+          >
+            <Hammer size={12} className={isDeepTracking ? 'animate-pulse' : ''} />
+            {isDeepTracking ? '基礎材料模式 (已開啟)' : '基礎材料模式 (已關閉)'}
+          </button>
         </header>
         
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
-          {trackedItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-slate-800 gap-3">
-              <Plus size={32} strokeWidth={1} />
-              <p className="text-xs text-center px-4 text-slate-400 dark:text-slate-700">點擊材料旁的 <ShoppingBag size={10} className="inline" /> <br/>即可加入追蹤</p>
-            </div>
-          ) : (
-            trackedItems.map(item => {
-              const nodes = gatheringData[String(item.id)] || [];
-              const mapInfo = nodes.length > 0 ? mapData.byId?.[nodes[0].mapId] : null;
-              const hasMap = nodes.length > 0 && mapInfo;
-              const isExpanded = expandedTrackerItems.has(item.id);
-
-              return (
-                <div key={item.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm group animate-in fade-in slide-in-from-right-2 duration-300 overflow-hidden">
-                  <div 
-                    onClick={() => hasMap && toggleTrackerMap(item.id)}
-                    className={`p-3 transition-colors ${hasMap ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50' : ''}`}
-                  >
-                    <div className="flex justify-between items-start mb-1.5">
-                      <div className="flex items-center gap-2 truncate flex-1">
-                        <span 
-                          className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (itemsMap[item.id]) setSelectedItem(itemsMap[item.id]);
-                          }}
-                        >
-                          {item.name}
-                        </span>
-                        {hasMap && (
-                          <MapPin size={12} className={`${isExpanded ? 'text-red-500' : 'text-slate-400 dark:text-slate-700'} shrink-0`} />
-                        )}
-                      </div>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveFromTracker(item.id);
-                        }}
-                        className="text-slate-300 dark:text-slate-700 hover:text-red-500 transition-colors ml-2"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-400 dark:text-slate-600 font-bold tracking-tight">ID: {item.id}</span>
-                      <div className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-black px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-800">
-                        ×{item.amount}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {isExpanded && hasMap && (
-                    <div className="border-t border-slate-100 bg-slate-50/50 pb-1">
-                      {renderMiniMap(item.id, nodes)}
-                    </div>
-                  )}
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
+          {/* 主要追蹤項目 */}
+          <section>
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-600 mb-3 flex items-center justify-between">
+              預計製作項目 {isDeepTracking && <span className="text-indigo-500 opacity-60">源頭</span>}
+            </h4>
+            <div className="flex flex-col gap-2">
+              {trackedItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-slate-300 dark:text-slate-800 gap-3 border-2 border-dashed border-slate-200 dark:border-slate-900 rounded-2xl">
+                  <Plus size={24} strokeWidth={1} />
+                  <p className="text-[10px] text-center px-4">點擊材料旁的 <ShoppingBag size={10} className="inline" /> <br/>即可加入追蹤</p>
                 </div>
-              );
-            })
+              ) : (
+                trackedItems.map(item => {
+                  const nodes = gatheringData[String(item.id)] || [];
+                  const mapInfo = nodes.length > 0 ? mapData.byId?.[nodes[0].mapId] : null;
+                  const hasMap = nodes.length > 0 && mapInfo;
+                  const isExpanded = expandedTrackerItems.has(item.id);
+
+                  return (
+                    <div key={item.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm group animate-in fade-in slide-in-from-right-2 duration-300 overflow-hidden">
+                      <div 
+                        onClick={() => hasMap && toggleTrackerMap(item.id)}
+                        className={`p-3 transition-colors ${hasMap ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50' : ''}`}
+                      >
+                        <div className="flex justify-between items-start mb-1.5">
+                          <div className="flex items-center gap-2 truncate flex-1">
+                            <span 
+                              className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (itemsMap[item.id]) setSelectedItem(itemsMap[item.id]);
+                              }}
+                            >
+                              {item.name}
+                            </span>
+                            {hasMap && (
+                              <MapPin size={12} className={`${isExpanded ? 'text-red-500' : 'text-slate-400 dark:text-slate-700'} shrink-0`} />
+                            )}
+                          </div>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFromTracker(item.id);
+                            }}
+                            className="text-slate-300 dark:text-slate-700 hover:text-red-500 transition-colors ml-2"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-400 dark:text-slate-600 font-bold tracking-tight">ID: {item.id}</span>
+                          <div className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-black px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-800">
+                            ×{item.amount}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {isExpanded && hasMap && (
+                        <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 pb-1">
+                          {renderMiniMap(item.id, nodes)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
+
+          {/* 基礎材料匯總 */}
+          {isDeepTracking && trackedItems.length > 0 && (
+            <section className="animate-in slide-in-from-bottom-4 duration-500">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-500 dark:text-indigo-400 mb-3 flex items-center gap-2">
+                <Pickaxe size={12} /> 一級基礎材料總計
+              </h4>
+              <div className="flex flex-col gap-2">
+                {aggregateMaterials.map(item => {
+                  const nodes = gatheringData[String(item.id)] || [];
+                  const mapInfo = nodes.length > 0 ? mapData.byId?.[nodes[0].mapId] : null;
+                  const hasMap = nodes.length > 0 && mapInfo;
+                  const isExpanded = expandedTrackerItems.has(`base-${item.id}`);
+
+                  return (
+                    <div key={`base-${item.id}`} className="bg-indigo-50/30 dark:bg-indigo-950/40 border border-indigo-100/50 dark:border-indigo-900/30 rounded-lg shadow-sm overflow-hidden">
+                      <div 
+                        onClick={() => {
+                           if (hasMap) {
+                             setExpandedTrackerItems(prev => {
+                               const next = new Set(prev);
+                               const key = `base-${item.id}`;
+                               if (next.has(key)) next.delete(key); else next.add(key);
+                               return next;
+                             });
+                           }
+                        }}
+                        className={`p-3 transition-colors ${hasMap ? 'cursor-pointer hover:bg-white/50 dark:hover:bg-slate-800/50' : ''}`}
+                      >
+                        <div className="flex justify-between items-start mb-1.5">
+                          <div className="flex items-center gap-2 truncate flex-1">
+                            <span 
+                              className="text-sm font-black text-slate-700 dark:text-slate-200 truncate hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (itemsMap[item.id]) setSelectedItem(itemsMap[item.id]);
+                              }}
+                            >
+                              {item.name}
+                            </span>
+                            {hasMap && (
+                              <MapPin size={12} className={`${isExpanded ? 'text-red-500' : 'text-slate-400 dark:text-slate-700'} shrink-0`} />
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                             <span className="text-[10px] text-slate-400 dark:text-slate-600 font-bold tracking-tight uppercase">Base Material</span>
+                             {nodes.some(n => n.timeRestriction) && (
+                               <span className="bg-amber-500 dark:bg-amber-600 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter shadow-sm">限時</span>
+                             )}
+                          </div>
+                          <div className="bg-indigo-600 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-sm">
+                            ×{item.amount}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {isExpanded && hasMap && (
+                        <div className="border-t border-indigo-100/50 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 pb-1">
+                          {renderMiniMap(item.id, nodes)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
         </div>
         
         {trackedItems.length > 0 && (
           <div className="p-5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-sm font-bold text-slate-500 dark:text-slate-400">待收集項目</span>
-              <span className="text-base font-black text-indigo-600 dark:text-indigo-400">{trackedItems.length}</span>
+              <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{isDeepTracking ? '基礎材料總數' : '追蹤項目總數'}</span>
+              <span className="text-base font-black text-indigo-600 dark:text-indigo-400">
+                {isDeepTracking ? aggregateMaterials.length : trackedItems.length}
+              </span>
             </div>
           </div>
         )}
