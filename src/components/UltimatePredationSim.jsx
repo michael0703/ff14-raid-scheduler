@@ -59,12 +59,13 @@ const UltimatePredationSim = () => {
     // Ifrit: Random Intercardinal (45, 135, 225, 315)
     // Titan: Random Cardinal (0, 90, 180, 270)
     
-    const intercardinals = [45, 135, 225, 315];
+    // Shuffle intercardinals to ensure unique positions for Garuda, Ifrit, Ultima
+    const intercardinals = [45, 135, 225, 315].sort(() => Math.random() - 0.5);
     const cardinals = [0, 90, 180, 270];
     
-    const gPos = intercardinals[Math.floor(Math.random() * 4)];
-    const uPos = intercardinals[Math.floor(Math.random() * 4)];
-    const iPos = intercardinals[Math.floor(Math.random() * 4)];
+    const gPos = intercardinals[0];
+    const uPos = intercardinals[1];
+    const iPos = intercardinals[2];
     const tPos = cardinals[Math.floor(Math.random() * 4)];
 
     setBosses({
@@ -151,10 +152,22 @@ const UltimatePredationSim = () => {
       const ifritProps = { type: 'rect', x: 50, y: 50, w: ifritDashWidth, h: 120, angle: bosses.ifrit.angle, color: 'rgba(239, 68, 68, 0.4)' };
       addMechanic('ifrit-dash', timeNX, 0.5, ifritProps);
       
+      // 4. Titan: Landslide (Split Pattern)
       const titanPos = getCoords(bosses.titan.angle, 45);
       const titanAngle = bosses.titan.angle;
+      const L = 200; 
+      
+      const getTitanRectBase = (offset) => {
+        const ang = titanAngle + offset;
+        const rad = (ang - 90) * (Math.PI / 180);
+        // Center of rect is TitanPos + Vector(ang+180) * L/2
+        const centerX = titanPos.x + (L / 2) * Math.cos(rad + Math.PI);
+        const centerY = titanPos.y + (L / 2) * Math.sin(rad + Math.PI);
+        return { x: centerX, y: centerY, w: 12, h: L, angle: ang };
+      };
+
       [0, titanFanAngle, -titanFanAngle].forEach(offset => {
-        addMechanic(`titan-l1-${offset}`, timeNX, 0.5, { type: 'rect', x: titanPos.x - 6, y: titanPos.y, w: 12, h: 150, angle: titanAngle + offset, color: 'rgba(234, 179, 8, 0.5)' });
+        addMechanic(`titan-l1-${offset}`, timeNX, 0.5, { ...getTitanRectBase(offset), type: 'rect', color: 'rgba(234, 179, 8, 0.5)' });
       });
 
       // 3. Final Hits (N + X + A)
@@ -165,7 +178,7 @@ const UltimatePredationSim = () => {
       });
 
       [titanFanAngle / 2, -titanFanAngle / 2].forEach(offset => {
-        addMechanic(`titan-l2-${offset}`, timeNXA, 0.5, { type: 'rect', x: titanPos.x - 6, y: titanPos.y, w: 12, h: 150, angle: titanAngle + offset, color: 'rgba(234, 179, 8, 0.5)' });
+        addMechanic(`titan-l2-${offset}`, timeNXA, 0.5, { ...getTitanRectBase(offset), type: 'rect', color: 'rgba(234, 179, 8, 0.5)' });
       });
 
       setAoes(newAoes);
