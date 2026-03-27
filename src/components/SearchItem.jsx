@@ -146,6 +146,18 @@ const SearchItem = () => {
     setTrackedItems(prev => prev.filter(i => i.id !== itemId));
   };
 
+  const handleUpdateTrackerAmount = (itemId, delta) => {
+    setTrackedItems(prev => {
+      return prev.map(item => {
+        if (item.id === itemId) {
+          const newAmount = Math.max(1, item.amount + delta);
+          return { ...item, amount: newAmount };
+        }
+        return item;
+      });
+    });
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
     if (!searchTerm.trim() || cachedItems.length === 0) return;
@@ -831,8 +843,28 @@ const SearchItem = () => {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-slate-400 dark:text-slate-600 font-bold tracking-tight">ID: {item.id}</span>
-                          <div className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-black px-2.5 py-1 rounded-full border border-emerald-100 dark:border-emerald-800">
-                            ×{item.amount}
+                          <div className="flex items-center gap-1.5">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateTrackerAmount(item.id, -1);
+                              }}
+                              className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                              -
+                            </button>
+                            <div className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-black px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/50">
+                              ×{item.amount}
+                            </div>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateTrackerAmount(item.id, 1);
+                              }}
+                              className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                              +
+                            </button>
                           </div>
                         </div>
                       </div>
