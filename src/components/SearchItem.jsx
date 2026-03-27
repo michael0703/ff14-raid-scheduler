@@ -15,6 +15,7 @@ const SearchItem = () => {
   const [itemsMap, setItemsMap] = useState({});
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedMapNode, setSelectedMapNode] = useState(null);
+  const [selectedVendorMap, setSelectedVendorMap] = useState(null);
   const [expandedIngredients, setExpandedIngredients] = useState(new Set());
   const [history, setHistory] = useState([]);
   const [expandedTrackerItems, setExpandedTrackerItems] = useState(new Set());
@@ -57,14 +58,19 @@ const SearchItem = () => {
           setRecipeData(recipes.recipes || recipes);
           setSourcesData(sources.sources || sources);
           
-          // Pre-index maps by ID for faster lookup
+          // Pre-index maps by ID and Name for faster lookup
           const mapsById = {};
+          const mapsByName = {};
           if (maps.maps) {
             Object.entries(maps.maps).forEach(([name, m]) => {
-              if (m.id) mapsById[m.id] = { ...m, zoneName: name };
+              if (m.id) {
+                const mapInfo = { ...m, zoneName: name };
+                mapsById[m.id] = mapInfo;
+                mapsByName[name] = mapInfo;
+              }
             });
           }
-          setMapData(mapsById);
+          setMapData({ byId: mapsById, byName: mapsByName });
           
           // Check URL for selected item (HashRouter support)
           const hash = window.location.hash;
@@ -269,33 +275,30 @@ const SearchItem = () => {
     );
   };
 
-  const renderMiniMap = (itemId, nodes) => {
-    if (!nodes || nodes.length === 0) return null;
-    const firstNode = nodes[0];
-    const miniMapInfo = mapData[firstNode.mapId];
-    if (!miniMapInfo) return null;
+  const renderMap = (mapInfo, x, y, title, subtitle) => {
+    if (!mapInfo) return null;
 
     return (
-      <div className="mx-2 my-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 shadow-sm animate-in zoom-in-95 duration-200">
+      <div className="mx-2 my-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 shadow-sm animate-in zoom-in-95 duration-200 whitespace-normal">
         <div className="text-xs font-black text-indigo-600 dark:text-indigo-400 mb-1.5 flex items-center justify-between">
           <span className="truncate mr-2">
-            {miniMapInfo.zoneName ? `${miniMapInfo.zoneName} - ` : ''}{firstNode.placeName} (Lv.{firstNode.level})
+            {title} {subtitle && <span className="opacity-70 font-bold ml-1 text-[10px]">{subtitle}</span>}
           </span>
-          <span className="shrink-0 text-slate-400 dark:text-slate-500">X:{firstNode.x}, Y:{firstNode.y}</span>
+          <span className="shrink-0 text-slate-400 dark:text-slate-500">X:{x}, Y:{y}</span>
         </div>
         <div className="relative aspect-video w-full bg-slate-100 dark:bg-slate-900 rounded overflow-hidden border border-slate-200 dark:border-slate-700">
           <img 
-            src={`https://xivapi.com/m/${miniMapInfo.path}.jpg`} 
-            alt={firstNode.placeName}
+            src={`https://xivapi.com/m/${mapInfo.path}.jpg`} 
+            alt={title}
             className="w-full h-full object-cover dark:opacity-80"
           />
           
           {/* Aetheryte Markers */}
-          {miniMapInfo.aetherytes?.map(ae => (
+          {mapInfo.aetherytes?.map(ae => (
             <div 
               key={ae.id}
               className="absolute w-5 h-5 -translate-x-1/2 -translate-y-1/2 transition-transform hover:scale-125 z-10"
-              style={{ left: getMarkerPos(ae.x, miniMapInfo.sizeFactor), top: getMarkerPos(ae.y, miniMapInfo.sizeFactor) }}
+              style={{ left: getMarkerPos(ae.x, mapInfo.sizeFactor), top: getMarkerPos(ae.y, mapInfo.sizeFactor) }}
               title={ae.name}
             >
               <div className="absolute inset-0 bg-blue-400/30 rounded-full blur-[2px] animate-pulse" />
@@ -303,16 +306,31 @@ const SearchItem = () => {
             </div>
           ))}
 
-          {/* Gathering Node Marker */}
+          {/* Marker */}
           <div 
             className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 z-20"
-            style={{ left: getMarkerPos(firstNode.x, miniMapInfo.sizeFactor), top: getMarkerPos(firstNode.y, miniMapInfo.sizeFactor) }}
+            style={{ left: getMarkerPos(x, mapInfo.sizeFactor), top: getMarkerPos(y, mapInfo.sizeFactor) }}
           >
             <div className="absolute inset-0 bg-red-500/40 rounded-full blur-[3px] animate-ping duration-1000" />
-            <img src="https://xivapi.com/i/060000/060432.png" alt="Node" className="w-full h-full relative z-10 drop-shadow-lg" />
+            <img src="https://xivapi.com/i/060000/060432.png" alt="Marker" className="w-full h-full relative z-10 drop-shadow-lg" />
           </div>
         </div>
       </div>
+    );
+  };
+
+  const renderMiniMap = (itemId, nodes) => {
+    if (!nodes || nodes.length === 0) return null;
+    const firstNode = nodes[0];
+    const mapInfo = mapData.byId?.[firstNode.mapId];
+    if (!mapInfo) return null;
+
+    return renderMap(
+      mapInfo,
+      firstNode.x,
+      firstNode.y,
+      `${mapInfo.zoneName ? `${mapInfo.zoneName} - ` : ''}${firstNode.placeName}`,
+      `(Lv.${firstNode.level})`
     );
   };
 
@@ -481,7 +499,7 @@ const SearchItem = () => {
           {nodes.length > 0 ? (
             <div className="flex flex-col gap-3">
               {nodes.map((node, i) => {
-                const mapInfo = mapData[node.mapId];
+                const mapInfo = mapData.byId?.[node.mapId];
                 const isMapVisible = selectedMapNode === `${node.id}-${i}`;
                 
                 return (
@@ -599,9 +617,9 @@ const SearchItem = () => {
               <ShoppingBag size={18} /> 獲取來源
             </h3>
             <div className="grid grid-cols-1 gap-3">
-              {sourcesData[id].map((source, si) => {
+            {sourcesData[id].map((source, si) => {
                 const isGC = source.type === 'gcshop';
-                const isVendor = source.type === 'vendor';
+                const hasVendors = source.vendors && source.vendors.length > 0;
                 
                 return (
                   <div key={si} className={`p-4 rounded-xl border flex flex-col gap-2 ${
@@ -626,17 +644,45 @@ const SearchItem = () => {
                       </div>
                     </div>
 
-                    {source.vendors && source.vendors.map((vendor, vi) => (
-                      <div key={vi} className="flex flex-col gap-0.5 mt-1 border-t border-slate-100 dark:border-slate-800 pt-2 first:border-t-0 first:pt-0">
-                        <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-                          <MapPin size={12} className="text-indigo-500" />
-                          {vendor.npcName}
+                    {hasVendors && source.vendors.map((vendor, vi) => {
+                      const vendorKey = `${si}-${vi}`;
+                      const isMapVisible = selectedVendorMap === vendorKey;
+                      const mapInfo = mapData.byName?.[vendor.zoneName];
+                      const hasCoords = vendor.x && vendor.y && mapInfo;
+
+                      return (
+                        <div key={vi} className="flex flex-col gap-1 mt-1 border-t border-slate-100 dark:border-slate-800 pt-2 first:border-t-0 first:pt-0">
+                          <div 
+                            onClick={() => hasCoords && setSelectedVendorMap(isMapVisible ? null : vendorKey)}
+                            className={`flex items-start justify-between gap-2 p-1.5 rounded-lg transition-all ${
+                              hasCoords ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50' : ''
+                            }`}
+                          >
+                            <div className="flex flex-col gap-0.5 min-w-0">
+                              <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
+                                <MapPin size={12} className={hasCoords ? 'text-indigo-500' : 'text-slate-400'} />
+                                <span className="truncate">{vendor.npcName}</span>
+                              </div>
+                              <div className="text-xs text-slate-400 dark:text-slate-500 pl-5">
+                                {vendor.zoneName}{vendor.x ? ` (X:${vendor.x}, Y:${vendor.y})` : ''}
+                              </div>
+                            </div>
+                            {hasCoords && (
+                              <span className="text-[9px] font-black text-indigo-500/70 border border-indigo-500/20 px-1.5 py-0.5 rounded uppercase tracking-tighter shrink-0 mt-1">
+                                {isMapVisible ? '隱藏地圖' : '查看地圖'}
+                              </span>
+                            )}
+                          </div>
+                          {isMapVisible && hasCoords && renderMap(
+                            mapInfo,
+                            vendor.x,
+                            vendor.y,
+                            vendor.zoneName,
+                            vendor.npcName
+                          )}
                         </div>
-                        <div className="text-xs text-slate-400 dark:text-slate-500 pl-5">
-                          {vendor.zoneName}{vendor.x ? ` (X:${vendor.x}, Y:${vendor.y})` : ''}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -673,7 +719,8 @@ const SearchItem = () => {
           ) : (
             trackedItems.map(item => {
               const nodes = gatheringData[String(item.id)] || [];
-              const hasMap = nodes.length > 0;
+              const mapInfo = nodes.length > 0 ? mapData.byId?.[nodes[0].mapId] : null;
+              const hasMap = nodes.length > 0 && mapInfo;
               const isExpanded = expandedTrackerItems.has(item.id);
 
               return (
