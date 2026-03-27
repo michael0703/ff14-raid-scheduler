@@ -46,7 +46,7 @@ const UltimatePredationSim = () => {
   const [garudaWheelRadius, setGarudaWheelRadius] = useState(20);
   const [garudaTornadoInner, setGarudaTornadoInner] = useState(15);
   const [garudaTornadoOuter, setGarudaTornadoOuter] = useState(60);
-  const [ultimaVentRadius, setUltimaVentRadius] = useState(40);
+  const [ultimaVentRadius, setUltimaVentRadius] = useState(25);
 
   const requestRef = useRef();
   const keysPressed = useRef({});
@@ -288,7 +288,7 @@ const UltimatePredationSim = () => {
           )}
 
           {/* Player */}
-          <circle cx={playerPos.x} cy={playerPos.y} r="2" fill="white" stroke="#3b82f6" strokeWidth="0.5" className="shadow-lg" />
+          <circle cx={playerPos.x} cy={playerPos.y} r="1.7" fill="white" stroke="#3b82f6" strokeWidth="0.5" className="shadow-lg" />
         </svg>
 
         {/* Overlays */}
