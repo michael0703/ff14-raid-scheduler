@@ -12,6 +12,7 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
   const [itemsMap, setItemsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedMapNode, setSelectedMapNode] = useState(null);
+  const [selectedVendorMap, setSelectedVendorMap] = useState(null);
   const [resolvedItem, setResolvedItem] = useState(null);
   const [et, setEt] = useState(getEorzeaTime());
 
@@ -46,12 +47,17 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
         setSourcesData(sources.sources || {});
 
         const mapsById = {};
+        const mapsByName = {};
         if (maps.maps) {
           Object.entries(maps.maps).forEach(([name, m]) => {
-            if (m.id) mapsById[m.id] = { ...m, zoneName: name };
+            if (m.id) {
+              const mapInfo = { ...m, zoneName: name };
+              mapsById[m.id] = mapInfo;
+              mapsByName[name] = mapInfo;
+            }
           });
         }
-        setMapData(mapsById);
+        setMapData({ byId: mapsById, byName: mapsByName });
 
         // Resolve item from either prop or itemName
         let foundItem = item;
@@ -74,41 +80,38 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
     return `${pos}%`;
   };
 
-  const renderMiniMap = (nodes) => {
-    if (!nodes || nodes.length === 0) return null;
-    const firstNode = nodes[0];
-    const miniMapInfo = mapData[firstNode.mapId];
-    if (!miniMapInfo) return null;
+  const renderMap = (mapInfo, x, y, title, subtitle) => {
+    if (!mapInfo) return null;
 
     return (
-      <div className={`mt-4 ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 shadow-inner`}>
+      <div className={`mt-4 ${isDarkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 shadow-inner whitespace-normal`}>
         <div className={`text-xs font-black ${isDarkMode ? 'text-blue-400' : 'text-blue-600'} mb-2 flex items-center justify-between`}>
           <span className="truncate mr-2">
-            {miniMapInfo.zoneName ? `${miniMapInfo.zoneName} - ` : ''}{firstNode.placeName} (Lv.{firstNode.level})
+            {title} {subtitle && <span className="opacity-70 font-bold ml-1">{subtitle}</span>}
           </span>
-          <span className={`shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>X:{firstNode.x}, Y:{firstNode.y}</span>
+          <span className={`shrink-0 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>X:{x}, Y:{y}</span>
         </div>
         <div className={`relative aspect-video w-full ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-200 border-slate-300'} rounded-lg overflow-hidden border`}>
           <img 
-            src={`https://xivapi.com/m/${miniMapInfo.path}.jpg`} 
-            alt={firstNode.placeName}
+            src={`https://xivapi.com/m/${mapInfo.path}.jpg`} 
+            alt={title}
             className="w-full h-full object-cover opacity-80"
           />
-          {miniMapInfo.aetherytes?.map(ae => (
+          {mapInfo.aetherytes?.map(ae => (
             <div 
               key={ae.id}
               className="absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2"
-              style={{ left: getMarkerPos(ae.x, miniMapInfo.sizeFactor), top: getMarkerPos(ae.y, miniMapInfo.sizeFactor) }}
+              style={{ left: getMarkerPos(ae.x, mapInfo.sizeFactor), top: getMarkerPos(ae.y, mapInfo.sizeFactor) }}
             >
               <img src="https://xivapi.com/i/060000/060453.png" alt={ae.name} className="w-full h-full relative z-10" />
             </div>
           ))}
           <div 
             className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 z-20"
-            style={{ left: getMarkerPos(firstNode.x, miniMapInfo.sizeFactor), top: getMarkerPos(firstNode.y, miniMapInfo.sizeFactor) }}
+            style={{ left: getMarkerPos(x, mapInfo.sizeFactor), top: getMarkerPos(y, mapInfo.sizeFactor) }}
           >
             <div className="absolute inset-0 bg-red-500/40 rounded-full blur-[3px] animate-ping duration-1000" />
-            <img src="https://xivapi.com/i/060000/060432.png" alt="Node" className="w-full h-full relative z-10" />
+            <img src="https://xivapi.com/i/060000/060432.png" alt="Marker" className="w-full h-full relative z-10" />
           </div>
         </div>
       </div>
@@ -214,7 +217,7 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
                   <div className="flex items-center justify-between mb-2">
                     <span className={`font-bold ${isDarkMode ? 'text-slate-200' : 'text-slate-700'} flex items-center gap-2`}>
                       <MapPin size={14} className="text-blue-500" />
-                      {mapData[node.mapId]?.zoneName || node.placeName}
+                      {mapData.byId?.[node.mapId]?.zoneName || node.placeName}
                     </span>
                     <span className={`text-[10px] ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} font-black uppercase tracking-tighter`}>
                       {selectedMapNode === i ? '隱藏地圖' : '顯示地圖'}
@@ -226,7 +229,13 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
                   </div>
                   {renderTimedInfo(node)}
                 </div>
-                {selectedMapNode === i && renderMiniMap([node])}
+                {selectedMapNode === i && renderMap(
+                  mapData.byId?.[node.mapId], 
+                  node.x, 
+                  node.y, 
+                  mapData.byId?.[node.mapId]?.zoneName || node.placeName, 
+                  node.placeName !== (mapData.byId?.[node.mapId]?.zoneName) ? `(${node.placeName} Lv.${node.level})` : `(Lv.${node.level})`
+                )}
               </div>
             ))}
           </div>
@@ -282,20 +291,70 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
       )}
 
       {sourcesData[id] && sourcesData[id].length > 0 && (
-        <div>
+        <div className="mt-2">
           <h3 className="flex items-center gap-2 text-sm font-black text-emerald-500 uppercase tracking-widest mb-4">
             <ShoppingBag size={16} /> 獲取來源
           </h3>
-          <div className="space-y-2">
-            {sourcesData[id].map((source, si) => (
-              <div key={si} className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 flex justify-between items-center`}>
-                <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{source.typeName}</span>
-                <div className={`flex items-center gap-1.5 ${isDarkMode ? 'bg-slate-800' : 'bg-white border-slate-100'} px-3 py-1 rounded-full border shadow-sm`}>
-                  <span className={`text-xs font-black ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{source.price?.toLocaleString()}</span>
-                  <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{source.currency === 'gc_seals' ? '軍票' : '金幣'}</span>
+          <div className="space-y-3">
+            {sourcesData[id].map((source, si) => {
+              const hasVendors = source.vendors && source.vendors.length > 0;
+              
+              return (
+                <div key={si} className={`${isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200'} border rounded-xl overflow-hidden`}>
+                  <div className="p-3 flex justify-between items-center border-b border-white/5">
+                    <span className={`text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{source.typeName}</span>
+                    <div className={`flex items-center gap-1.5 ${isDarkMode ? 'bg-slate-800' : 'bg-white border-slate-100'} px-3 py-1 rounded-full border shadow-sm`}>
+                      <span className={`text-xs font-black ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{source.price?.toLocaleString()}</span>
+                      <span className={`text-[10px] font-bold ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>{source.currency === 'gc_seals' ? '軍票' : '金幣'}</span>
+                    </div>
+                  </div>
+                  
+                  {hasVendors && (
+                    <div className="p-3 space-y-3">
+                      {source.vendors.map((vendor, vi) => {
+                        const vendorKey = `${si}-${vi}`;
+                        const isMapVisible = selectedVendorMap === vendorKey;
+                        const mapInfo = mapData.byName?.[vendor.zoneName];
+                        const hasCoords = vendor.x && vendor.y && mapInfo;
+
+                        return (
+                          <div key={vi} className="flex flex-col gap-2">
+                            <div 
+                              onClick={() => hasCoords && setSelectedVendorMap(isMapVisible ? null : vendorKey)}
+                              className={`flex items-start justify-between gap-2 p-2 rounded-lg transition-all ${
+                                hasCoords ? 'cursor-pointer hover:bg-white/5' : ''
+                              }`}
+                            >
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+                                  <MapPin size={12} className={hasCoords ? 'text-emerald-500' : 'text-slate-600'} />
+                                  <span className="truncate">{vendor.npcName}</span>
+                                </div>
+                                <div className={`text-[10px] pl-5 ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} font-medium`}>
+                                  {vendor.zoneName}{vendor.x ? ` (X:${vendor.x}, Y:${vendor.y})` : ''}
+                                </div>
+                              </div>
+                              {hasCoords && (
+                                <span className="text-[9px] font-black text-emerald-500/70 border border-emerald-500/20 px-1.5 py-0.5 rounded uppercase tracking-tighter shrink-0">
+                                  {isMapVisible ? '隱藏地圖' : '查看地圖'}
+                                </span>
+                              )}
+                            </div>
+                            {isMapVisible && hasCoords && renderMap(
+                              mapInfo, 
+                              vendor.x, 
+                              vendor.y, 
+                              vendor.zoneName, 
+                              vendor.npcName
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
