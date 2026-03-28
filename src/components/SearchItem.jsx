@@ -158,6 +158,18 @@ const SearchItem = () => {
     });
   };
 
+  const handleUpdateTrackerAmountDirect = (itemId, amount) => {
+    const newAmount = Math.max(1, parseInt(amount) || 1);
+    setTrackedItems(prev => {
+      return prev.map(item => {
+        if (item.id === itemId) {
+          return { ...item, amount: newAmount };
+        }
+        return item;
+      });
+    });
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
     if (!searchTerm.trim() || cachedItems.length === 0) return;
@@ -548,13 +560,45 @@ const SearchItem = () => {
               </div>
             </div>
           </div>
-          <button
-            onClick={() => handleAddToTracker(selectedItem, 1)}
-            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95"
-          >
-            <ShoppingBag size={16} />
-            追蹤此物品
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+              <button
+                onClick={() => {
+                  const input = document.getElementById('add-amount-input');
+                  if (input) input.value = Math.max(1, (parseInt(input.value) || 1) - 1);
+                }}
+                className="px-3 py-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                -
+              </button>
+              <input
+                id="add-amount-input"
+                type="number"
+                defaultValue="1"
+                min="1"
+                className="w-12 bg-transparent text-center font-black text-slate-800 dark:text-slate-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <button
+                onClick={() => {
+                  const input = document.getElementById('add-amount-input');
+                  if (input) input.value = (parseInt(input.value) || 1) + 1;
+                }}
+                className="px-3 py-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                +
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                const amount = parseInt(document.getElementById('add-amount-input')?.value) || 1;
+                handleAddToTracker(selectedItem, amount);
+              }}
+              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95 whitespace-nowrap"
+            >
+              <ShoppingBag size={16} />
+              追蹤此物品
+            </button>
+          </div>
         </div>
 
         {/* 採集地點 */}
@@ -853,9 +897,13 @@ const SearchItem = () => {
                             >
                               -
                             </button>
-                            <div className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-black px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/50">
-                              ×{item.amount}
-                            </div>
+                            <input
+                              type="number"
+                              value={item.amount}
+                              onChange={(e) => handleUpdateTrackerAmountDirect(item.id, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[11px] font-black w-10 text-center py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/50 outline-none focus:ring-1 focus:ring-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
