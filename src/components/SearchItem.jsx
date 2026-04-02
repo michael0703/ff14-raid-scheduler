@@ -123,7 +123,16 @@ const SearchItem = () => {
     localStorage.setItem('ff14-checked-base-materials', JSON.stringify([...checkedBaseMaterials]));
   }, [checkedBaseMaterials]);
 
+  const isBasicMaterial = (name) => {
+    if (!name) return false;
+    const basicPatterns = ['碎晶', '水晶', '晶簇', '極光之簇', '之簇']; // Common crystal/shard/cluster patterns
+    // Also check for specific elemental crystals if needed, but these patterns should cover most.
+    return basicPatterns.some(p => name.includes(p));
+  };
+
   const handleAddToTracker = (item, amount = 1) => {
+    if (isBasicMaterial(item.name)) return; // Don't add basic crystals to tracker
+    
     setTrackedItems(prev => {
       let nextList;
       const existing = prev.find(i => i.id === item.id);
@@ -252,7 +261,7 @@ const SearchItem = () => {
       name: itemsMap[id]?.name || `#${id}`,
       amount,
       isTimed: gatheringData[id]?.some(n => n.timeRestriction)
-    })).sort((a, b) => {
+    })).filter(item => !isBasicMaterial(item.name)).sort((a, b) => {
       const nodesA = gatheringData[a.id] || [];
       const nodesB = gatheringData[b.id] || [];
       const keyA = nodesA.length > 0 ? (nodesA[0].mapId || 999999) : 999999;
