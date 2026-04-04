@@ -30,6 +30,10 @@ const SearchItem = () => {
   });
   const [isDeepTracking, setIsDeepTracking] = useState(true);
   const [et, setEt] = useState(getEorzeaTime());
+  const [searchHistory, setSearchHistory] = useState(() => {
+    const saved = localStorage.getItem('ff14-search-history');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -116,6 +120,10 @@ const SearchItem = () => {
   }, []);
 
   useEffect(() => {
+    localStorage.setItem('ff14-search-history', JSON.stringify(searchHistory));
+  }, [searchHistory]);
+
+  useEffect(() => {
     localStorage.setItem('ff14-tracked-items', JSON.stringify(trackedItems));
   }, [trackedItems]);
 
@@ -137,9 +145,9 @@ const SearchItem = () => {
       let nextList;
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
-        nextList = prev.map(i => i.id === item.id ? { ...i, amount: i.amount + amount } : i);
+        nextList = prev.map(i => i.id === item.id ? { ...i, amount: i.amount + amount, checked: true } : i);
       } else {
-        nextList = [...prev, { id: item.id, name: item.name, amount, checked: false }];
+        nextList = [...prev, { id: item.id, name: item.name, amount, checked: true }];
       }
 
       const getSortKey = (id) => {
@@ -157,13 +165,13 @@ const SearchItem = () => {
   };
 
   const handleRemoveFromTracker = (itemId) => {
-    setTrackedItems(prev => prev.filter(i => i.id !== itemId));
+    setTrackedItems(prev => prev.filter(i => String(i.id) !== String(itemId)));
   };
 
   const handleUpdateTrackerAmount = (itemId, delta) => {
     setTrackedItems(prev => {
       return prev.map(item => {
-        if (item.id === itemId) {
+        if (String(item.id) === String(itemId)) {
           const newAmount = Math.max(1, item.amount + delta);
           return { ...item, amount: newAmount };
         }
@@ -176,7 +184,7 @@ const SearchItem = () => {
     const newAmount = Math.max(1, parseInt(amount) || 1);
     setTrackedItems(prev => {
       return prev.map(item => {
-        if (item.id === itemId) {
+        if (String(item.id) === String(itemId)) {
           return { ...item, amount: newAmount };
         }
         return item;
@@ -186,7 +194,7 @@ const SearchItem = () => {
 
   const toggleTrackedChecked = (itemId) => {
     setTrackedItems(prev => prev.map(item => 
-      item.id === itemId ? { ...item, checked: !item.checked } : item
+      String(item.id) === String(itemId) ? { ...item, checked: !item.checked } : item
     ));
   };
 
@@ -199,24 +207,35 @@ const SearchItem = () => {
     });
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (!searchTerm.trim() || cachedItems.length === 0) return;
+  const performSearch = (query) => {
+    const term = query.trim();
+    if (!term || cachedItems.length === 0) return;
     setSelectedItem(null);
-    const term = searchTerm.toLowerCase();
+    const lowerTerm = term.toLowerCase();
     const filtered = cachedItems.filter(item => {
       if (!item) return false;
-      if (typeof item.id === 'number' && String(item.id) === term) return true;
-      if (typeof item.id === 'string' && item.id === term) return true;
+      if (typeof item.id === 'number' && String(item.id) === lowerTerm) return true;
+      if (typeof item.id === 'string' && item.id === lowerTerm) return true;
       for (const key of Object.keys(item)) {
         if (key.toLowerCase().includes('name')) {
           const val = item[key];
-          if (typeof val === 'string' && val.toLowerCase().includes(term)) return true;
+          if (typeof val === 'string' && val.toLowerCase().includes(lowerTerm)) return true;
         }
       }
       return false;
     });
     setResults(filtered.slice(0, 50));
+    
+    // Add to history
+    setSearchHistory(prev => {
+      const newHistory = [term, ...prev.filter(h => h !== term)].slice(0, 20);
+      return newHistory;
+    });
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    performSearch(searchTerm);
   };
 
   const resolveTree = (ingredients, depth = 0, visited = new Set()) =>
@@ -233,15 +252,25 @@ const SearchItem = () => {
 
   const aggregateMaterials = useMemo(() => {
     if (!trackedItems.length || !itemsMap || !recipeData || Object.keys(itemsMap).length === 0) return [];
-    const result = {};
-    const decompose = (itemId, amount, visited = new Set()) => {
+    const result = {}; // { itemId: { amount, sources: { topId: amount } } }
+    
+    const decompose = (itemId, amount, visited = new Set(), currentTopId = null) => {
       const recipes = recipeData[itemId];
+      
+      const record = (id, q) => {
+        if (!result[id]) result[id] = { amount: 0, sources: {} };
+        result[id].amount += q;
+        if (currentTopId) {
+          result[id].sources[currentTopId] = (result[id].sources[currentTopId] || 0) + q;
+        }
+      };
+
       if (visited.has(itemId)) {
-        result[itemId] = (result[itemId] || 0) + amount;
+        record(itemId, amount);
         return;
       }
       if (!recipes || recipes.length === 0) {
-        result[itemId] = (result[itemId] || 0) + amount;
+        record(itemId, amount);
         return;
       }
       const recipe = recipes[0];
@@ -250,16 +279,21 @@ const SearchItem = () => {
       const nextVisited = new Set(visited);
       nextVisited.add(itemId);
       (recipe.ingredients || []).forEach(ing => {
-        decompose(String(ing.itemId), ing.amount * craftCount, nextVisited);
+        decompose(String(ing.itemId), ing.amount * craftCount, nextVisited, currentTopId);
       });
     };
+
     trackedItems.forEach(item => {
-      decompose(String(item.id), item.amount);
+      if (item.checked) {
+        decompose(String(item.id), item.amount, new Set(), String(item.id));
+      }
     });
-    return Object.entries(result).map(([id, amount]) => ({
+
+    return Object.entries(result).map(([id, info]) => ({
       id,
       name: itemsMap[id]?.name || `#${id}`,
-      amount,
+      amount: info.amount,
+      sources: info.sources,
       isTimed: gatheringData[id]?.some(n => n.timeRestriction)
     })).filter(item => !isBasicMaterial(item.name)).sort((a, b) => {
       const nodesA = gatheringData[a.id] || [];
@@ -675,16 +709,17 @@ const SearchItem = () => {
       const trackerKey = isBase ? `base-${id}` : id;
       const isExpanded = expandedTrackerItems.has(trackerKey);
       const isChecked = isBase ? checkedBaseMaterials.has(id) : item.checked;
+      const isFaded = isBase ? isChecked : !isChecked;
 
       return (
-        <div key={trackerKey} className={`transition-all duration-300 ${isChecked ? 'opacity-50' : ''}`}>
-          <div className={`bg-white dark:bg-slate-900 border rounded-lg shadow-sm overflow-hidden transition-colors ${isChecked ? 'border-slate-200 dark:border-slate-800' : (isBase ? 'border-indigo-100 dark:border-indigo-900/30' : 'border-slate-200 dark:border-slate-800')}`}>
+        <div key={trackerKey} className={`transition-all duration-300 ${isFaded ? 'opacity-50' : ''}`}>
+          <div className={`bg-white dark:bg-slate-900 border rounded-lg shadow-sm overflow-hidden transition-colors ${isFaded ? 'border-slate-200 dark:border-slate-800' : (isBase ? 'border-indigo-100 dark:border-indigo-900/30' : 'border-indigo-600/20 dark:border-indigo-400/20')}`}>
             <div onClick={() => hasMap && toggleTrackerMap(trackerKey)} className={`p-3 flex items-start gap-2 ${hasMap ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50' : ''}`}>
               <input type="checkbox" checked={isChecked} onChange={(e) => { e.stopPropagation(); if (isBase) toggleBaseChecked(id); else toggleTrackedChecked(id); }} className="mt-1 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-1">
                   <div className="flex items-center gap-1.5 truncate flex-1">
-                    <span className={`text-sm font-bold truncate transition-all cursor-pointer ${isChecked ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400'}`} onClick={(e) => { e.stopPropagation(); if (itemsMap[id]) setSelectedItem(itemsMap[id]); }}>{item.name}</span>
+                    <span className={`text-sm font-bold truncate transition-all cursor-pointer ${isFaded ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400'}`} onClick={(e) => { e.stopPropagation(); if (itemsMap[id]) setSelectedItem(itemsMap[id]); }}>{item.name}</span>
                     {hasMap && <MapPin size={12} className={`${isExpanded ? 'text-red-500' : 'text-slate-400 dark:text-slate-700'} shrink-0`} />}
                   </div>
                   {!isBase && <button onClick={(e) => { e.stopPropagation(); handleRemoveFromTracker(id); }} className="text-slate-300 dark:text-slate-700 hover:text-red-500 transition-colors ml-1 shrink-0"><Trash2 size={12} /></button>}
@@ -704,6 +739,24 @@ const SearchItem = () => {
               </div>
             </div>
             {isExpanded && hasMap && <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 pb-1">{renderMiniMap(id, nodes)}</div>}
+            
+            {isBase && item.sources && Object.keys(item.sources).length > 0 && (
+              <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20">
+                <div className="text-[9px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest mb-1">用途途徑 (成品需求)</div>
+                <div className="flex flex-col gap-1">
+                  {Object.entries(item.sources).map(([topId, q]) => {
+                    const topItem = trackedItems.find(ti => String(ti.id) === String(topId));
+                    if (!topItem) return null;
+                    return (
+                      <div key={topId} className="flex justify-between items-center text-[10px]">
+                        <span className="text-slate-500 dark:text-slate-400 truncate pr-2 font-medium">{topItem.name}</span>
+                        <span className="text-indigo-500 dark:text-indigo-400 font-bold shrink-0">×{q}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -720,52 +773,56 @@ const SearchItem = () => {
             </div>
           </div>
           <button onClick={() => setIsDeepTracking(!isDeepTracking)} className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${isDeepTracking ? 'bg-indigo-600 border-indigo-400 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-400'}`}>
-            <Hammer size={12} className={isDeepTracking ? 'animate-pulse' : ''} />{isDeepTracking ? '基礎材料模式 (已開啟)' : '基礎材料模式 (已關閉)'}
+            <Hammer size={12} className={isDeepTracking ? 'animate-pulse' : ''} />{isDeepTracking ? '材料整理清單 (已開啟)' : '切換為材料清單'}
           </button>
         </header>
 
-        <section className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
-          {isDeepTracking ? (
-            <div className="animate-in slide-in-from-bottom-4 duration-500 flex flex-col gap-6">
-              {categorizedBase.timed.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 px-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
-                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-500 uppercase tracking-widest">限時採集物</span>
-                  </div>
-                  {categorizedBase.timed.map(item => renderItem(item, true))}
-                </div>
-              )}
-              {categorizedBase.regular.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 px-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
-                    <span className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">一般採集物</span>
-                  </div>
-                  {categorizedBase.regular.map(item => renderItem(item, true))}
-                </div>
-              )}
+        <section className="flex-1 overflow-y-auto p-4 flex flex-col gap-8">
+          {/* Section 1: Tracked Products (Always Visible) */}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+              <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">已加入的成品項目</span>
             </div>
-          ) : (
-            <div className="flex flex-col gap-6">
-              {trackedItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-slate-300 dark:text-slate-800 gap-3 border-2 border-dashed border-slate-200 dark:border-slate-900 rounded-2xl"><Plus size={24} strokeWidth={1} /><p className="text-[10px] text-center px-4">點擊材料旁的 <ShoppingBag size={10} className="inline" /> <br/>即可加入追蹤</p></div>
-              ) : (
-                <>
-                  {categorizedTracked.timed.length > 0 && (
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 px-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span className="text-[10px] font-black text-amber-600 dark:text-amber-500 uppercase tracking-widest">限時節點</span></div>
-                      {categorizedTracked.timed.map(item => renderItem(item))}
+            {trackedItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-slate-300 dark:text-slate-800 gap-2 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                <Plus size={20} strokeWidth={1} /><p className="text-[10px] text-center px-4 opacity-60">搜尋並點擊 <ShoppingBag size={10} className="inline" /> 加入追蹤</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {categorizedTracked.timed.map(item => renderItem(item))}
+                {categorizedTracked.regular.map(item => renderItem(item))}
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Consolidated Base Materials (If Toggled) */}
+          {isDeepTracking && (
+            <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-800 pt-6 animate-in slide-in-from-bottom-4 duration-500">
+              <div className="flex items-center gap-2 px-1">
+                <div className="w-1 h-4 bg-indigo-500 rounded-full" />
+                <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">基礎材料總需求</span>
+              </div>
+              <div className="flex flex-col gap-6">
+                {categorizedBase.timed.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 px-1 opacity-70">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
+                      <span className="text-[9px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest">限時採集</span>
                     </div>
-                  )}
-                  {categorizedTracked.regular.length > 0 && (
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 px-1"><span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">一般節點</span></div>
-                      {categorizedTracked.regular.map(item => renderItem(item))}
+                    {categorizedBase.timed.map(item => renderItem(item, true))}
+                  </div>
+                )}
+                {categorizedBase.regular.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 px-1 opacity-70">
+                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                      <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">一般材料</span>
                     </div>
-                  )}
-                </>
-              )}
+                    {categorizedBase.regular.map(item => renderItem(item, true))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </section>
@@ -792,6 +849,23 @@ const SearchItem = () => {
             <button type="submit" disabled={!searchTerm.trim()} className="bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-40 shrink-0"><Search size={16} /></button>
           </div>
           {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
+          
+          {searchHistory.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2 overflow-hidden max-h-24">
+              {searchHistory.map((h, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setSearchTerm(h);
+                    performSearch(h);
+                  }}
+                  className="text-[10px] font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors whitespace-nowrap"
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
+          )}
         </form>
 
         <div className="flex-1 overflow-y-auto">
