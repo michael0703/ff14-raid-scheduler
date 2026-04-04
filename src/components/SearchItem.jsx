@@ -719,20 +719,20 @@ const SearchItem = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-1">
                   <div className="flex items-center gap-1.5 truncate flex-1">
-                    <span className={`text-sm font-bold truncate transition-all cursor-pointer ${isFaded ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400'}`} onClick={(e) => { e.stopPropagation(); if (itemsMap[id]) setSelectedItem(itemsMap[id]); }}>{item.name}</span>
+                    <span className={`text-base font-black truncate transition-all cursor-pointer ${isFaded ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400'}`} onClick={(e) => { e.stopPropagation(); if (itemsMap[id]) setSelectedItem(itemsMap[id]); }}>{item.name}</span>
                     {hasMap && <MapPin size={12} className={`${isExpanded ? 'text-red-500' : 'text-slate-400 dark:text-slate-700'} shrink-0`} />}
                   </div>
                   {!isBase && <button onClick={(e) => { e.stopPropagation(); handleRemoveFromTracker(id); }} className="text-slate-300 dark:text-slate-700 hover:text-red-500 transition-colors ml-1 shrink-0"><Trash2 size={12} /></button>}
                 </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-[10px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{isBase ? 'Base Material' : `ID: ${id}`}</span>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-xs text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{isBase ? '基礎材料 BASE' : `ID: ${id}`}</span>
                   {isBase ? (
-                    <div className="bg-indigo-600 text-white text-[11px] font-black px-2 py-0.5 rounded-full shadow-sm">×{item.amount}</div>
+                    <div className="bg-indigo-600 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-sm">×{item.amount}</div>
                   ) : (
                     <div className="flex items-center gap-1">
-                      <button onClick={(e) => { e.stopPropagation(); handleUpdateTrackerAmount(id, -1); }} className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-[10px]">-</button>
-                      <input type="number" value={item.amount} onChange={(e) => handleUpdateTrackerAmountDirect(id, e.target.value)} onClick={(e) => e.stopPropagation()} className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-black w-10 text-center py-0 rounded-full border border-emerald-100 dark:border-emerald-800/50 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                      <button onClick={(e) => { e.stopPropagation(); handleUpdateTrackerAmount(id, 1); }} className="w-4 h-4 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-[10px]">+</button>
+                      <button onClick={(e) => { e.stopPropagation(); handleUpdateTrackerAmount(id, -1); }} className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-xs">-</button>
+                      <input type="number" value={item.amount} onChange={(e) => handleUpdateTrackerAmountDirect(id, e.target.value)} onClick={(e) => e.stopPropagation()} className="bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-black w-12 text-center py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/50 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      <button onClick={(e) => { e.stopPropagation(); handleUpdateTrackerAmount(id, 1); }} className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-xs">+</button>
                     </div>
                   )}
                 </div>
@@ -741,14 +741,14 @@ const SearchItem = () => {
             {isExpanded && hasMap && <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 pb-1">{renderMiniMap(id, nodes)}</div>}
             
             {isBase && item.sources && Object.keys(item.sources).length > 0 && (
-              <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20">
-                <div className="text-[9px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest mb-1">用途途徑 (成品需求)</div>
+              <div className="px-3 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/20">
+                <div className="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest mb-1.5">用途途徑 (成品需求)</div>
                 <div className="flex flex-col gap-1">
                   {Object.entries(item.sources).map(([topId, q]) => {
                     const topItem = trackedItems.find(ti => String(ti.id) === String(topId));
                     if (!topItem) return null;
                     return (
-                      <div key={topId} className="flex justify-between items-center text-[10px]">
+                      <div key={topId} className="flex justify-between items-center text-xs">
                         <span className="text-slate-500 dark:text-slate-400 truncate pr-2 font-medium">{topItem.name}</span>
                         <span className="text-indigo-500 dark:text-indigo-400 font-bold shrink-0">×{q}</span>
                       </div>
@@ -766,14 +766,14 @@ const SearchItem = () => {
       <div className="h-full flex flex-col bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 w-[450px] shrink-0 overflow-hidden shadow-2xl">
         <header className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-base font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide"><ShoppingBag size={18} className="text-emerald-500" /> 追蹤清單</h3>
+            <h3 className="flex items-center gap-2 text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide"><ShoppingBag size={20} className="text-emerald-500" /> 追蹤清單</h3>
             <div className="flex items-center gap-3">
-              <span className="text-[10px] font-black text-slate-400">{isDeepTracking ? `${checkedBaseCount}/${totalBase}` : `${checkedTracked}/${totalTracked}`}</span>
-              {trackedItems.length > 0 && <button onClick={() => { if (window.confirm('確定要清空所有追蹤項目嗎？')) { setTrackedItems([]); setCheckedBaseMaterials(new Set()); } }} className="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase">全部清除</button>}
+              <span className="text-xs font-black text-slate-500">{isDeepTracking ? `${checkedBaseCount}/${totalBase}` : `${checkedTracked}/${totalTracked}`}</span>
+              {trackedItems.length > 0 && <button onClick={() => { if (window.confirm('確定要清空所有追蹤項目嗎？')) { setTrackedItems([]); setCheckedBaseMaterials(new Set()); } }} className="text-sm font-bold text-red-400 hover:text-red-500 transition-colors uppercase">全部清除</button>}
             </div>
           </div>
-          <button onClick={() => setIsDeepTracking(!isDeepTracking)} className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${isDeepTracking ? 'bg-indigo-600 border-indigo-400 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-400'}`}>
-            <Hammer size={12} className={isDeepTracking ? 'animate-pulse' : ''} />{isDeepTracking ? '材料整理清單 (已開啟)' : '切換為材料清單'}
+          <button onClick={() => setIsDeepTracking(!isDeepTracking)} className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${isDeepTracking ? 'bg-indigo-600 border-indigo-400 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-400'}`}>
+            <Hammer size={14} className={isDeepTracking ? 'animate-pulse' : ''} />{isDeepTracking ? '材料整理清單 (已開啟)' : '切換為材料清單'}
           </button>
         </header>
 
@@ -781,8 +781,8 @@ const SearchItem = () => {
           {/* Section 1: Tracked Products (Always Visible) */}
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2 px-1">
-              <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-              <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">已加入的成品項目</span>
+              <div className="w-1.5 h-5 bg-emerald-500 rounded-full" />
+              <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">已加入的成品項目</span>
             </div>
             {trackedItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-slate-300 dark:text-slate-800 gap-2 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
@@ -800,8 +800,8 @@ const SearchItem = () => {
           {isDeepTracking && (
             <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-800 pt-6 animate-in slide-in-from-bottom-4 duration-500">
               <div className="flex items-center gap-2 px-1">
-                <div className="w-1 h-4 bg-indigo-500 rounded-full" />
-                <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">基礎材料總需求</span>
+                <div className="w-1.5 h-5 bg-indigo-500 rounded-full" />
+                <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">基礎材料總需求</span>
               </div>
               <div className="flex flex-col gap-6">
                 {categorizedBase.timed.length > 0 && (
