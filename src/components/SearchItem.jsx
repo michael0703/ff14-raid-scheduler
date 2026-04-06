@@ -26,7 +26,17 @@ const SearchItem = () => {
   });
   const [checkedBaseMaterials, setCheckedBaseMaterials] = useState(() => {
     const saved = localStorage.getItem('ff14-checked-base-materials');
-    return new Set(saved ? JSON.parse(saved) : []);
+    if (!saved) return {};
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        // Migration: If it was a Set/Array of IDs, assume those are fully collected
+        return parsed.reduce((acc, id) => ({ ...acc, [id]: 999999 }), {});
+      }
+      return parsed;
+    } catch (e) {
+      return {};
+    }
   });
   const [isDeepTracking, setIsDeepTracking] = useState(true);
   const [et, setEt] = useState(getEorzeaTime());
@@ -128,7 +138,7 @@ const SearchItem = () => {
   }, [trackedItems]);
 
   useEffect(() => {
-    localStorage.setItem('ff14-checked-base-materials', JSON.stringify([...checkedBaseMaterials]));
+    localStorage.setItem('ff14-checked-base-materials', JSON.stringify(checkedBaseMaterials));
   }, [checkedBaseMaterials]);
 
   const isBasicMaterial = (name) => {
@@ -198,13 +208,24 @@ const SearchItem = () => {
     ));
   };
 
-  const toggleBaseChecked = (materialId) => {
+  const toggleBaseChecked = (materialId, totalAmount) => {
     setCheckedBaseMaterials(prev => {
-      const next = new Set(prev);
-      if (next.has(materialId)) next.delete(materialId);
-      else next.add(materialId);
+      const next = { ...prev };
+      const current = next[materialId] || 0;
+      if (current >= totalAmount) {
+        next[materialId] = 0;
+      } else {
+        next[materialId] = totalAmount;
+      }
       return next;
     });
+  };
+
+  const handleUpdateBaseCollected = (materialId, collected) => {
+    setCheckedBaseMaterials(prev => ({
+      ...prev,
+      [materialId]: Math.max(0, parseInt(collected) || 0)
+    }));
   };
 
   const performSearch = (query) => {
@@ -699,7 +720,10 @@ const SearchItem = () => {
     const totalTracked = trackedItems.length;
     const checkedTracked = trackedItems.filter(i => i.checked).length;
     const totalBase = aggregateMaterials.length;
-    const checkedBaseCount = [...checkedBaseMaterials].filter(id => aggregateMaterials.some(m => String(m.id) === String(id))).length;
+    const checkedBaseCount = Object.entries(checkedBaseMaterials).filter(([id, collected]) => {
+      const material = aggregateMaterials.find(m => String(m.id) === String(id));
+      return material && collected >= material.amount;
+    }).length;
 
     const renderItem = (item, isBase = false) => {
       const id = String(item.id);
@@ -708,14 +732,15 @@ const SearchItem = () => {
       const hasMap = nodes.length > 0 && mapInfo;
       const trackerKey = isBase ? `base-${id}` : id;
       const isExpanded = expandedTrackerItems.has(trackerKey);
-      const isChecked = isBase ? checkedBaseMaterials.has(id) : item.checked;
+      const collectedAmount = isBase ? (checkedBaseMaterials[id] || 0) : 0;
+      const isChecked = isBase ? (collectedAmount >= item.amount) : item.checked;
       const isFaded = isBase ? isChecked : !isChecked;
 
       return (
         <div key={trackerKey} className={`transition-all duration-300 ${isFaded ? 'opacity-50' : ''}`}>
           <div className={`bg-white dark:bg-slate-900 border rounded-lg shadow-sm overflow-hidden transition-colors ${isFaded ? 'border-slate-200 dark:border-slate-800' : (isBase ? 'border-indigo-100 dark:border-indigo-900/30' : 'border-indigo-600/20 dark:border-indigo-400/20')}`}>
             <div onClick={() => hasMap && toggleTrackerMap(trackerKey)} className={`p-3 flex items-start gap-2 ${hasMap ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50' : ''}`}>
-              <input type="checkbox" checked={isChecked} onChange={(e) => { e.stopPropagation(); if (isBase) toggleBaseChecked(id); else toggleTrackedChecked(id); }} className="mt-1 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0" />
+              <input type="checkbox" checked={isChecked} onChange={(e) => { e.stopPropagation(); if (isBase) toggleBaseChecked(id, item.amount); else toggleTrackedChecked(id); }} className="mt-1 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-1">
                   <div className="flex items-center gap-1.5 truncate flex-1">
@@ -727,7 +752,20 @@ const SearchItem = () => {
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-xs text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{isBase ? '基礎材料 BASE' : `ID: ${id}`}</span>
                   {isBase ? (
-                    <div className="bg-indigo-600 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-sm">×{item.amount}</div>
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-600 font-black uppercase tracking-tighter mr-1">已有</span>
+                      <input 
+                        type="number" 
+                        value={collectedAmount} 
+                        onChange={(e) => {
+                          const val = Math.max(0, parseInt(e.target.value) || 0);
+                          handleUpdateBaseCollected(id, val);
+                        }} 
+                        onClick={(e) => e.stopPropagation()} 
+                        className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-black w-12 text-center py-0.5 rounded-md border border-indigo-100 dark:border-indigo-800/50 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                      />
+                      <span className="text-xs font-black text-slate-400 dark:text-slate-600">/ {item.amount}</span>
+                    </div>
                   ) : (
                     <div className="flex items-center gap-1">
                       <button onClick={(e) => { e.stopPropagation(); handleUpdateTrackerAmount(id, -1); }} className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-xs">-</button>
@@ -769,7 +807,7 @@ const SearchItem = () => {
             <h3 className="flex items-center gap-2 text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide"><ShoppingBag size={20} className="text-emerald-500" /> 追蹤清單</h3>
             <div className="flex items-center gap-3">
               <span className="text-xs font-black text-slate-500">{isDeepTracking ? `${checkedBaseCount}/${totalBase}` : `${checkedTracked}/${totalTracked}`}</span>
-              {trackedItems.length > 0 && <button onClick={() => { if (window.confirm('確定要清空所有追蹤項目嗎？')) { setTrackedItems([]); setCheckedBaseMaterials(new Set()); } }} className="text-sm font-bold text-red-400 hover:text-red-500 transition-colors uppercase">全部清除</button>}
+              {trackedItems.length > 0 && <button onClick={() => { if (window.confirm('確定要清空所有追蹤項目嗎？')) { setTrackedItems([]); setCheckedBaseMaterials({}); } }} className="text-sm font-bold text-red-400 hover:text-red-500 transition-colors uppercase">全部清除</button>}
             </div>
           </div>
           <button onClick={() => setIsDeepTracking(!isDeepTracking)} className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${isDeepTracking ? 'bg-indigo-600 border-indigo-400 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-400'}`}>
