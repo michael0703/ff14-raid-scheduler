@@ -44,6 +44,7 @@ const SearchItem = () => {
     const saved = localStorage.getItem('ff14-search-history');
     return saved ? JSON.parse(saved) : [];
   });
+  const [materialCategory, setMaterialCategory] = useState('all');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -310,13 +311,26 @@ const SearchItem = () => {
       }
     });
 
-    return Object.entries(result).map(([id, info]) => ({
-      id,
-      name: itemsMap[id]?.name || `#${id}`,
-      amount: info.amount,
-      sources: info.sources,
-      isTimed: gatheringData[id]?.some(n => n.timeRestriction)
-    })).filter(item => !isBasicMaterial(item.name)).sort((a, b) => {
+    return Object.entries(result).map(([id, info]) => {
+      const sources = sourcesData[id] || [];
+      const hasGC = sources.some(s => s.type === 'gcshop' || s.currency === 'gc_seals');
+      const hasPoetics = !hasGC && sources.some(s => s.currencyItemId === 28 || (s.typeName && (s.typeName.includes('詩學') || s.typeName.includes('神典石'))));
+      const hasGathering = gatheringData[id] && gatheringData[id].length > 0;
+      
+      let sourceTag = 'other';
+      if (hasGathering) sourceTag = 'gathering';
+      else if (hasGC) sourceTag = 'gc';
+      else if (hasPoetics) sourceTag = 'poetics';
+
+      return {
+        id,
+        name: itemsMap[id]?.name || `#${id}`,
+        amount: info.amount,
+        sources: info.sources,
+        isTimed: gatheringData[id]?.some(n => n.timeRestriction),
+        sourceTag
+      };
+    }).filter(item => !isBasicMaterial(item.name)).sort((a, b) => {
       const nodesA = gatheringData[a.id] || [];
       const nodesB = gatheringData[b.id] || [];
       const keyA = nodesA.length > 0 ? (nodesA[0].mapId || 999999) : 999999;
@@ -341,11 +355,12 @@ const SearchItem = () => {
     const timed = [];
     const regular = [];
     aggregateMaterials.forEach(item => {
+      if (materialCategory !== 'all' && item.sourceTag !== materialCategory) return;
       if (item.isTimed) timed.push(item);
       else regular.push(item);
     });
     return { timed, regular };
-  }, [aggregateMaterials]);
+  }, [aggregateMaterials, materialCategory]);
 
   const depthColors = [
     'border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-700/50',
@@ -719,11 +734,9 @@ const SearchItem = () => {
   const renderTracker = () => {
     const totalTracked = trackedItems.length;
     const checkedTracked = trackedItems.filter(i => i.checked).length;
-    const totalBase = aggregateMaterials.length;
-    const checkedBaseCount = Object.entries(checkedBaseMaterials).filter(([id, collected]) => {
-      const material = aggregateMaterials.find(m => String(m.id) === String(id));
-      return material && collected >= material.amount;
-    }).length;
+    const filteredBaseMaterials = aggregateMaterials.filter(m => materialCategory === 'all' || m.sourceTag === materialCategory);
+    const totalBase = filteredBaseMaterials.length;
+    const checkedBaseCount = filteredBaseMaterials.filter(m => (checkedBaseMaterials[m.id] || 0) >= m.amount).length;
 
     const renderItem = (item, isBase = false) => {
       const id = String(item.id);
@@ -837,9 +850,34 @@ const SearchItem = () => {
           {/* Section 2: Consolidated Base Materials (If Toggled) */}
           {isDeepTracking && (
             <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-800 pt-6 animate-in slide-in-from-bottom-4 duration-500">
-              <div className="flex items-center gap-2 px-1">
-                <div className="w-1.5 h-5 bg-indigo-500 rounded-full" />
-                <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">基礎材料總需求</span>
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-5 bg-indigo-500 rounded-full" />
+                  <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">基礎材料總需求</span>
+                </div>
+                {/* 分類清單按鈕 */}
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                  {[
+                    { id: 'all', label: '全部' },
+                    { id: 'gathering', label: '採集', icon: <Pickaxe size={12} /> },
+                    { id: 'gc', label: '軍票', icon: <ShoppingBag size={12} /> },
+                    { id: 'poetics', label: '詩學', icon: <Database size={12} /> },
+                    { id: 'other', label: '其他' }
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setMaterialCategory(cat.id)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black tracking-tighter transition-all ${
+                        materialCategory === cat.id 
+                          ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                      }`}
+                    >
+                      {cat.icon}
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="flex flex-col gap-6">
                 {categorizedBase.timed.length > 0 && (
