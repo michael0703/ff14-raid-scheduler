@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Database, Box, MapPin, Pickaxe, Hammer, ChevronRight, ChevronLeft, ShoppingBag, Trash2, Plus, Clock, Copy, Check, ExternalLink } from 'lucide-react';
+import { Search, Database, Box, MapPin, Pickaxe, Hammer, ChevronRight, ChevronLeft, ShoppingBag, Trash2, Plus, Clock, Copy, Check, ExternalLink, DollarSign, Loader2, X } from 'lucide-react';
 import { getEorzeaTime, getSpawnStatus, formatRealTime } from '../utils/eorzeaTime';
 
 const SearchItem = () => {
@@ -47,6 +47,11 @@ const SearchItem = () => {
   const [materialCategory, setMaterialCategory] = useState('all');
   const [copiedId, setCopiedId] = useState(null);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, itemName: '' });
+  const [userWorld, setUserWorld] = useState(() => localStorage.getItem('ff14-user-world') || 'Bahamut');
+  const [priceLookupItem, setPriceLookupItem] = useState(null);
+  const [marketPrices, setMarketPrices] = useState({});
+  const [isFetchingPrices, setIsFetchingPrices] = useState(false);
+  const [priceError, setPriceError] = useState(null);
 
   const handleCopy = (text, id) => {
     navigator.clipboard.writeText(text);
@@ -171,6 +176,10 @@ const SearchItem = () => {
     localStorage.setItem('ff14-checked-base-materials', JSON.stringify(checkedBaseMaterials));
   }, [checkedBaseMaterials]);
 
+  useEffect(() => {
+    localStorage.setItem('ff14-user-world', userWorld);
+  }, [userWorld]);
+
   const isBasicMaterial = (name) => {
     if (!name) return false;
     const basicPatterns = ['碎晶', '水晶', '晶簇', '極光之簇', '之簇']; // Common crystal/shard/cluster patterns
@@ -256,6 +265,74 @@ const SearchItem = () => {
       ...prev,
       [materialId]: Math.max(0, parseInt(collected) || 0)
     }));
+  };
+
+  const getMaterialsForItem = (itemId, amount) => {
+    const result = {}; // { itemId: amount }
+    const decompose = (id, q, visited = new Set()) => {
+      const recipes = recipeData[id];
+      if (visited.has(id)) {
+        result[id] = (result[id] || 0) + q;
+        return;
+      }
+      if (!recipes || recipes.length === 0) {
+        result[id] = (result[id] || 0) + q;
+        return;
+      }
+      const recipe = recipes[0];
+      const yieldAmount = recipe.resultAmount || 1;
+      const craftCount = Math.ceil(q / yieldAmount);
+      const nextVisited = new Set(visited);
+      nextVisited.add(id);
+      (recipe.ingredients || []).forEach(ing => {
+        decompose(String(ing.itemId), ing.amount * craftCount, nextVisited);
+      });
+    };
+    decompose(String(itemId), amount);
+    return result;
+  };
+
+  const fetchMarketPrices = async (item) => {
+    setPriceLookupItem(item);
+    setIsFetchingPrices(true);
+    setPriceError(null);
+    setMarketPrices({});
+
+    try {
+      const materials = getMaterialsForItem(item.id, item.amount);
+      const ids = Object.keys(materials).filter(id => !isBasicMaterial(itemsMap[id]?.name));
+      
+      if (ids.length === 0) {
+        setIsFetchingPrices(false);
+        return;
+      }
+
+      // Max 100 items per request for Universalis
+      const batches = [];
+      for (let i = 0; i < ids.length; i += 100) {
+        batches.push(ids.slice(i, i + 100));
+      }
+
+      const allResults = {};
+      for (const batch of batches) {
+        const res = await fetch(`https://universalis.app/api/v2/${userWorld}/${batch.join(',')}?listings=5&entries=0`);
+        if (!res.ok) throw new Error('無法取得市價資料');
+        const data = await res.json();
+        
+        // Handle both single and multiple return formats
+        if (batch.length === 1) {
+          const itemId = batch[0];
+          allResults[itemId] = data;
+        } else {
+          Object.assign(allResults, data.items || {});
+        }
+      }
+      setMarketPrices(allResults);
+    } catch (err) {
+      setPriceError(err.message);
+    } finally {
+      setIsFetchingPrices(false);
+    }
   };
 
   const performSearch = (query) => {
@@ -833,7 +910,18 @@ const SearchItem = () => {
                     </button>
                     {hasMap && <MapPin size={12} className={`${isExpanded ? 'text-red-500' : 'text-slate-400 dark:text-slate-700'} shrink-0`} />}
                   </div>
-                  {!isBase && <button onClick={(e) => { e.stopPropagation(); handleRemoveFromTracker(id); }} className="text-slate-300 dark:text-slate-700 hover:text-red-500 transition-colors ml-1 shrink-0"><Trash2 size={12} /></button>}
+                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                    {!isBase && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); fetchMarketPrices(item); }} 
+                        className="text-slate-300 dark:text-slate-700 hover:text-amber-500 transition-colors"
+                        title="查詢材料市價"
+                      >
+                        <DollarSign size={12} />
+                      </button>
+                    )}
+                    {!isBase && <button onClick={(e) => { e.stopPropagation(); handleRemoveFromTracker(id); }} className="text-slate-300 dark:text-slate-700 hover:text-red-500 transition-colors shrink-0"><Trash2 size={12} /></button>}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-xs text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{isBase ? '基礎材料 BASE' : `ID: ${id}`}</span>
@@ -896,9 +984,21 @@ const SearchItem = () => {
               {trackedItems.length > 0 && <button onClick={() => { if (window.confirm('確定要清空所有追蹤項目嗎？')) { setTrackedItems([]); setCheckedBaseMaterials({}); } }} className="text-sm font-bold text-red-400 hover:text-red-500 transition-colors uppercase">全部清除</button>}
             </div>
           </div>
-          <button onClick={() => setIsDeepTracking(!isDeepTracking)} className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${isDeepTracking ? 'bg-indigo-600 border-indigo-400 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-400'}`}>
-            <Hammer size={14} className={isDeepTracking ? 'animate-pulse' : ''} />{isDeepTracking ? '材料整理清單 (已開啟)' : '切換為材料清單'}
-          </button>
+          <div className="flex flex-col gap-2">
+            <button onClick={() => setIsDeepTracking(!isDeepTracking)} className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${isDeepTracking ? 'bg-indigo-600 border-indigo-400 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-400'}`}>
+              <Hammer size={14} className={isDeepTracking ? 'animate-pulse' : ''} />{isDeepTracking ? '材料整理清單 (已開啟)' : '切換為材料清單'}
+            </button>
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">伺服器:</span>
+              <input 
+                type="text" 
+                value={userWorld}
+                onChange={(e) => setUserWorld(e.target.value)}
+                placeholder="例如: Bahamut"
+                className="flex-1 bg-transparent text-[10px] font-black text-indigo-600 dark:text-indigo-400 border-b border-dashed border-slate-200 dark:border-slate-700 outline-none focus:border-indigo-400 px-1 py-0.5 uppercase"
+              />
+            </div>
+          </div>
         </header>
 
         <section className="flex-1 overflow-y-auto p-4 flex flex-col gap-8">
@@ -1040,6 +1140,95 @@ const SearchItem = () => {
 
       {/* Middle panel: Detail */}
       <div className="flex-1 overflow-hidden bg-white dark:bg-slate-900 transition-colors duration-300">{renderDetail()}</div>
+
+      {/* Price Lookup Modal */}
+      {priceLookupItem && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  <DollarSign className="text-amber-500" />
+                  材料估價: {priceLookupItem.name}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1 font-bold uppercase tracking-widest">伺服器: {userWorld} | 數量: {priceLookupItem.amount}</p>
+              </div>
+              <button 
+                onClick={() => setPriceLookupItem(null)}
+                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {isFetchingPrices ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <Loader2 size={40} className="text-indigo-500 animate-spin" />
+                  <p className="text-sm font-bold text-slate-500">正在從 Universalis 抓取行情...</p>
+                </div>
+              ) : priceError ? (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 p-6 rounded-xl text-center">
+                  <p className="text-red-600 dark:text-red-400 font-bold mb-2">查詢失敗</p>
+                  <p className="text-xs text-red-500/70">{priceError}</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div className="grid grid-cols-12 gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">
+                    <div className="col-span-6">材料名稱</div>
+                    <div className="col-span-2 text-right">數量</div>
+                    <div className="col-span-2 text-right">最低單價</div>
+                    <div className="col-span-2 text-right">小計</div>
+                  </div>
+                  
+                  {(() => {
+                    const materials = getMaterialsForItem(priceLookupItem.id, priceLookupItem.amount);
+                    let totalCost = 0;
+                    const rows = Object.entries(materials)
+                      .filter(([id]) => !isBasicMaterial(itemsMap[id]?.name))
+                      .map(([id, amount]) => {
+                        const info = marketPrices[id];
+                        const minPrice = info?.minPriceNQ || info?.minPriceHQ || 0;
+                        const subtotal = minPrice * amount;
+                        totalCost += subtotal;
+                        return (
+                          <div key={id} className="grid grid-cols-12 gap-2 items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                            <div className="col-span-6 flex flex-col">
+                              <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{itemsMap[id]?.name || `#${id}`}</span>
+                              {info && (
+                                <span className="text-[10px] text-slate-400 flex gap-2">
+                                  <span>NQ: {info.minPriceNQ?.toLocaleString() || '-'}</span>
+                                  <span>HQ: {info.minPriceHQ?.toLocaleString() || '-'}</span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="col-span-2 text-right text-sm font-black text-slate-500">×{amount}</div>
+                            <div className="col-span-2 text-right text-sm font-black text-indigo-600 dark:text-indigo-400">{minPrice.toLocaleString()}</div>
+                            <div className="col-span-2 text-right text-sm font-black text-slate-800 dark:text-slate-100">{subtotal.toLocaleString()}</div>
+                          </div>
+                        );
+                      });
+
+                    return (
+                      <>
+                        <div className="flex flex-col gap-2">{rows}</div>
+                        <div className="mt-6 p-4 bg-slate-900 dark:bg-black rounded-xl border border-slate-800 shadow-lg flex justify-between items-center">
+                          <span className="text-sm font-black text-slate-400 uppercase tracking-widest">總估計成本 (NQ換算)</span>
+                          <span className="text-2xl font-black text-amber-400 tabular-nums">{totalCost.toLocaleString()} <span className="text-xs text-amber-500/50">GIL</span></span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-center">
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter italic">數據來自 Universalis API | 價格僅供參考</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Right panel: Tracker */}
       {renderTracker()}
