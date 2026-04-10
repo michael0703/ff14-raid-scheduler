@@ -3,7 +3,7 @@ import submarineData from '../data/submarine_materials.json';
 import ItemDetailView from './ItemDetailView';
 import { decomposeMaterials } from '../utils/submarineMaterialDecomposer';
 import { dataService } from '../utils/dataService';
-import { Sun, Moon, Trash2, Pickaxe, Hammer, ShoppingBag, Database, Clock } from 'lucide-react';
+import { Sun, Moon, Trash2, Pickaxe, Hammer, ShoppingBag, Database, Clock, Copy, Check, Search, ExternalLink } from 'lucide-react';
 import { getEorzeaTime, getSpawnStatus, formatRealTime } from '../utils/eorzeaTime';
 
 const partTypes = ['船體', '船首', '船尾', '艦橋'];
@@ -30,6 +30,35 @@ const SubmarineGathering = () => {
   const [supabaseCounts, setSupabaseCounts] = useState({});
   const [hideCompleted, setHideCompleted] = useState(false);
   const [et, setEt] = useState(getEorzeaTime());
+  const [copiedId, setCopiedId] = useState(null);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, itemName: '' });
+
+  const handleCopy = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleContextMenu = (e, itemName) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.pageX,
+      y: e.pageY,
+      itemName
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu({ ...contextMenu, visible: false });
+  };
+
+  useEffect(() => {
+    if (contextMenu.visible) {
+      window.addEventListener('click', closeContextMenu);
+      return () => window.removeEventListener('click', closeContextMenu);
+    }
+  }, [contextMenu.visible]);
 
   const isDarkMode = document.documentElement.classList.contains('dark');
 
@@ -334,15 +363,30 @@ const SubmarineGathering = () => {
                           return (
                             <tr key={m.name} className={`group transition-all duration-300 ${isSelected ? (isDarkMode ? 'bg-blue-600/10' : 'bg-blue-50') : (isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50')}`}>
                               <td className="px-8 py-6">
-                                <button 
-                                  onClick={() => {
-                                    setSelectedItemName(m.name);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                  }}
-                                  className={`font-black text-lg transition-all text-left ${isSelected ? 'text-blue-400' : (isDarkMode ? 'text-slate-200 group-hover:text-blue-300' : 'text-slate-700 group-hover:text-blue-600')}`}
-                                >
-                                  {m.name}
-                                </button>
+                                <div className="flex items-center">
+                                  <button 
+                                    onClick={() => {
+                                      setSelectedItemName(m.name);
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    onContextMenu={(e) => handleContextMenu(e, m.name)}
+                                    className={`font-black text-lg transition-all text-left cursor-context-menu ${isSelected ? 'text-blue-400' : (isDarkMode ? 'text-slate-200 group-hover:text-blue-300' : 'text-slate-700 group-hover:text-blue-600')}`}
+                                  >
+                                    {m.name}
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCopy(m.name, `sub-${m.name}`);
+                                    }}
+                                    className={`p-1 ml-2 rounded transition-colors ${
+                                      isDarkMode ? 'hover:bg-white/10 text-slate-500' : 'hover:bg-slate-100 text-slate-400'
+                                    }`}
+                                    title="複製名字"
+                                  >
+                                    {copiedId === `sub-${m.name}` ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                  </button>
+                                </div>
                                 <div className="flex flex-wrap items-center gap-1.5 mt-1 overflow-hidden">
                                   {m.id && gatheringData && gatheringData[m.id] && gatheringData[m.id].some(n => n.timeRestriction) && (
                                     <>
@@ -431,6 +475,35 @@ const SubmarineGathering = () => {
           </div>
         </div>
       </div>
+      {contextMenu.visible && (
+        <div 
+          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-2 min-w-[200px] animate-in zoom-in-95 duration-150"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <div className="px-4 py-2 text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 mb-1">物品選項</div>
+          <button
+            onClick={() => {
+              window.open(`https://www.google.com/search?q=FF14+${encodeURIComponent(contextMenu.itemName)}`, '_blank');
+              closeContextMenu();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors text-left font-black"
+          >
+            <Search size={16} className="text-indigo-500" />
+            在 Google 搜尋
+            <ExternalLink size={12} className="ml-auto opacity-50" />
+          </button>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(contextMenu.itemName);
+              closeContextMenu();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left font-black"
+          >
+            <Copy size={16} className="text-slate-400" />
+            複製名字
+          </button>
+        </div>
+      )}
     </div>
   );
 };

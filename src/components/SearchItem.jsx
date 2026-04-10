@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Database, Box, MapPin, Pickaxe, Hammer, ChevronRight, ChevronLeft, ShoppingBag, Trash2, Plus, Clock } from 'lucide-react';
+import { Search, Database, Box, MapPin, Pickaxe, Hammer, ChevronRight, ChevronLeft, ShoppingBag, Trash2, Plus, Clock, Copy, Check, ExternalLink } from 'lucide-react';
 import { getEorzeaTime, getSpawnStatus, formatRealTime } from '../utils/eorzeaTime';
 
 const SearchItem = () => {
@@ -45,6 +45,35 @@ const SearchItem = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [materialCategory, setMaterialCategory] = useState('all');
+  const [copiedId, setCopiedId] = useState(null);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, itemName: '' });
+
+  const handleCopy = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleContextMenu = (e, itemName) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.pageX,
+      y: e.pageY,
+      itemName
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu({ ...contextMenu, visible: false });
+  };
+
+  useEffect(() => {
+    if (contextMenu.visible) {
+      window.addEventListener('click', closeContextMenu);
+      return () => window.removeEventListener('click', closeContextMenu);
+    }
+  }, [contextMenu.visible]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -498,7 +527,23 @@ const SearchItem = () => {
           className={`flex items-center justify-between px-4 py-2 rounded-lg border-l-4 text-sm transition-all ${depthColors[node.depth % depthColors.length]} ${hasGathering ? 'cursor-pointer hover:brightness-95 dark:hover:brightness-110 active:scale-[0.98]' : 'cursor-default'}`}
         >
           <div className="flex items-center gap-2 overflow-hidden">
-            <span className="font-semibold truncate" title={node.name}>{node.name}</span>
+            <span 
+              className="font-semibold truncate cursor-context-menu" 
+              title={node.name}
+              onContextMenu={(e) => handleContextMenu(e, node.name)}
+            >
+              {node.name}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopy(node.name, nodeKey);
+              }}
+              className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-indigo-500 transition-colors"
+              title="複製名字"
+            >
+              {copiedId === nodeKey ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+            </button>
             {isTimed && (
               <div className="flex items-center gap-1.5 overflow-hidden">
                 <span className="shrink-0 flex items-center gap-1 bg-amber-500 dark:bg-amber-600 text-white px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter shadow-sm"><Clock size={10} /> 限時</span>
@@ -581,7 +626,19 @@ const SearchItem = () => {
           <div className="border-b-2 border-slate-100 dark:border-slate-800 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
-                <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{selectedItem.name}</h2>
+                <h2 
+                  className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight cursor-context-menu"
+                  onContextMenu={(e) => handleContextMenu(e, selectedItem.name)}
+                >
+                  {selectedItem.name}
+                </h2>
+                <button
+                  onClick={() => handleCopy(selectedItem.name, `detail-${selectedItem.id}`)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-indigo-500 transition-all active:scale-90"
+                  title="複製名字"
+                >
+                  {copiedId === `detail-${selectedItem.id}` ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                </button>
                 {nodes.length > 0 ? (
                   <span className="flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800 shadow-sm"><Pickaxe size={12} /> 可採集</span>
                 ) : (
@@ -757,7 +814,23 @@ const SearchItem = () => {
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-1">
                   <div className="flex items-center gap-1.5 truncate flex-1">
-                    <span className={`text-base font-black truncate transition-all cursor-pointer ${isFaded ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400'}`} onClick={(e) => { e.stopPropagation(); if (itemsMap[id]) setSelectedItem(itemsMap[id]); }}>{item.name}</span>
+                    <span 
+                      className={`text-base font-black truncate transition-all cursor-context-menu ${isFaded ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400'}`} 
+                      onClick={(e) => { e.stopPropagation(); if (itemsMap[id]) setSelectedItem(itemsMap[id]); }}
+                      onContextMenu={(e) => handleContextMenu(e, item.name)}
+                    >
+                      {item.name}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCopy(item.name, `tracker-${trackerKey}`);
+                      }}
+                      className="p-1 rounded text-slate-300 dark:text-slate-700 hover:text-indigo-500 transition-colors"
+                      title="複製名字"
+                    >
+                      {copiedId === `tracker-${trackerKey}` ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                    </button>
                     {hasMap && <MapPin size={12} className={`${isExpanded ? 'text-red-500' : 'text-slate-400 dark:text-slate-700'} shrink-0`} />}
                   </div>
                   {!isBase && <button onClick={(e) => { e.stopPropagation(); handleRemoveFromTracker(id); }} className="text-slate-300 dark:text-slate-700 hover:text-red-500 transition-colors ml-1 shrink-0"><Trash2 size={12} /></button>}
@@ -970,6 +1043,35 @@ const SearchItem = () => {
 
       {/* Right panel: Tracker */}
       {renderTracker()}
+      {contextMenu.visible && (
+        <div 
+          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-2 min-w-[200px] animate-in zoom-in-95 duration-150"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <div className="px-4 py-2 text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 mb-1">物品選項</div>
+          <button
+            onClick={() => {
+              window.open(`https://www.google.com/search?q=FF14+${encodeURIComponent(contextMenu.itemName)}`, '_blank');
+              closeContextMenu();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors text-left"
+          >
+            <Search size={16} className="text-indigo-500" />
+            在 Google 搜尋
+            <ExternalLink size={12} className="ml-auto opacity-50" />
+          </button>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(contextMenu.itemName);
+              closeContextMenu();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+          >
+            <Copy size={16} className="text-slate-400" />
+            複製名字
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Box, MapPin, Pickaxe, Hammer, ChevronLeft, ShoppingBag, Database, Clock
+  Box, MapPin, Pickaxe, Hammer, ChevronLeft, ShoppingBag, Database, Clock, Copy, Check, ExternalLink, Search
 } from 'lucide-react';
 import { getEorzeaTime, getSpawnStatus, formatRealTime } from '../utils/eorzeaTime';
 
@@ -15,6 +15,35 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
   const [selectedVendorMap, setSelectedVendorMap] = useState(null);
   const [resolvedItem, setResolvedItem] = useState(null);
   const [et, setEt] = useState(getEorzeaTime());
+  const [copiedId, setCopiedId] = useState(null);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, itemName: '' });
+
+  const handleCopy = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleContextMenu = (e, itemName) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.pageX,
+      y: e.pageY,
+      itemName
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu({ ...contextMenu, visible: false });
+  };
+
+  useEffect(() => {
+    if (contextMenu.visible) {
+      window.addEventListener('click', closeContextMenu);
+      return () => window.removeEventListener('click', closeContextMenu);
+    }
+  }, [contextMenu.visible]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -181,8 +210,24 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
       )}
 
       <div className={`border-b ${isDarkMode ? 'border-white/10' : 'border-slate-200'} pb-6`}>
-        <div className="flex items-center justify-between gap-3 mb-2">
-          <h2 className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'} tracking-tight`}>{resolvedItem.name}</h2>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3">
+            <h2 
+              className={`text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-900'} tracking-tight cursor-context-menu`}
+              onContextMenu={(e) => handleContextMenu(e, resolvedItem.name)}
+            >
+              {resolvedItem.name}
+            </h2>
+            <button
+              onClick={() => handleCopy(resolvedItem.name, `header-${resolvedItem.id}`)}
+              className={`p-1.5 rounded-lg transition-all active:scale-90 ${
+                isDarkMode ? 'hover:bg-white/10 text-slate-500' : 'hover:bg-slate-100 text-slate-400'
+              }`}
+              title="複製名字"
+            >
+              {copiedId === `header-${resolvedItem.id}` ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+            </button>
+          </div>
           <div className="flex flex-col items-end">
             <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border ${
               isDarkMode ? 'bg-slate-800 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-700 border-blue-200'
@@ -261,7 +306,24 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
                     <div key={ii} className={`flex flex-col gap-1 p-2 rounded ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-blue-50'} transition-colors`}>
                       <div className="flex justify-between items-center text-sm w-full">
                         <div className="flex items-center gap-2 overflow-hidden">
-                          <span className={isDarkMode ? 'text-slate-300' : 'text-slate-700'}>{itemsMap[ing.itemId]?.name || `#${ing.itemId}`}</span>
+                          <span 
+                            className={`${isDarkMode ? 'text-slate-300' : 'text-slate-700'} cursor-context-menu`}
+                            onContextMenu={(e) => handleContextMenu(e, itemsMap[ing.itemId]?.name || `#${ing.itemId}`)}
+                          >
+                            {itemsMap[ing.itemId]?.name || `#${ing.itemId}`}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopy(itemsMap[ing.itemId]?.name || `#${ing.itemId}`, `ing-${ing.itemId}`);
+                            }}
+                            className={`p-1 rounded transition-colors ${
+                              isDarkMode ? 'hover:bg-white/10 text-slate-600' : 'hover:bg-slate-200 text-slate-400'
+                            }`}
+                            title="複製名字"
+                          >
+                            {copiedId === `ing-${ing.itemId}` ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                          </button>
                           {(() => {
                             const nodeData = gatheringData[ing.itemId];
                             if (!nodeData || !nodeData.some(n => n.timeRestriction)) return null;
@@ -356,6 +418,35 @@ const ItemDetailView = ({ item, itemName, onBack, isDarkMode = true }) => {
               );
             })}
           </div>
+        </div>
+      )}
+      {contextMenu.visible && (
+        <div 
+          className="fixed z-[9999] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-2 min-w-[200px] animate-in zoom-in-95 duration-150"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <div className="px-4 py-2 text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 mb-1">物品選項</div>
+          <button
+            onClick={() => {
+              window.open(`https://www.google.com/search?q=FF14+${encodeURIComponent(contextMenu.itemName)}`, '_blank');
+              closeContextMenu();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors text-left"
+          >
+            <Search size={16} className="text-indigo-500" />
+            在 Google 搜尋
+            <ExternalLink size={12} className="ml-auto opacity-50" />
+          </button>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(contextMenu.itemName);
+              closeContextMenu();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
+          >
+            <Copy size={16} className="text-slate-400" />
+            複製名字
+          </button>
         </div>
       )}
     </div>
